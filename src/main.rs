@@ -1,6 +1,4 @@
-use std::any;
-
-use rouille::{Response, ResponseBody};
+use rouille::{Response};
 use tar_hash::TarHash;
 use tar_id::TarId;
 

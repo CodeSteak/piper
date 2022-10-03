@@ -1,4 +1,4 @@
-use std::{any, io::Read, path::PathBuf};
+use std::{io::Read};
 
 use rouille::{
     websocket::{self, Websocket},
