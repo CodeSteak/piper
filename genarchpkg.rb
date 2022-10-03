@@ -7,7 +7,7 @@ version = File.read("Cargo.toml").scan(/^version\s*=\s*\"([\d\.]+)\"/)[0][0]
 puts "#{pkgname} #{version}"
 Dir.mkdir("archpkg") if !Dir.exists?("archpkg")
 
-system("tar", "-czvf", "archpkg/#{pkgname}-#{version}.tar.gz",  "src", "Cargo.toml", "templates", "static")
+system("tar", "-czvf", "archpkg/#{pkgname}-#{version}.tar.gz",  "src", "Cargo.toml", "templates", "static", "tiny-http/Cargo.toml", "tiny-http/src")
 
 conf = %{
 [general]

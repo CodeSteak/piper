@@ -43,7 +43,7 @@ pub fn handle_range<T: Read + Seek + Send + 'static>(
             let offset = parts.next()?.parse::<u64>().ok()?;
             let end = parts.next()?.parse::<u64>().ok()?;
 
-            let length = offset.saturating_sub(end + 1);
+            let length = end.saturating_sub(offset) + 1;
             Some((offset, length))
         });
 
