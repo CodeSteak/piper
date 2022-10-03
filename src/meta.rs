@@ -23,10 +23,15 @@ pub struct MetaData {
 }
 
 impl MetaStore {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        Self {
-            path: path.as_ref().to_path_buf(),
+    pub fn new<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        if !path.exists() {
+            std::fs::create_dir(path.clone())?;
         }
+
+        Ok(Self {
+            path: path
+        })
     }
 
     pub fn get(&self, id: &TarHash) -> anyhow::Result<Option<MetaData>> {

@@ -31,7 +31,7 @@ fn main() {
 
     let state = AppState {
         config: config.clone(),
-        meta: meta::MetaStore::new("./data"),
+        meta: meta::MetaStore::new("./data").unwrap(),
     };
 
     std::thread::spawn({
@@ -80,7 +80,7 @@ fn main() {
             (GET) ["/"] => {
                 Ok(ErrorResponse::unimplemented().into())
             },
-            _ => Ok(rouille::Response::empty_404())
+            _ => Ok(ErrorResponse::not_found().into())
         );
 
         match res {

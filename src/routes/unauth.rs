@@ -4,7 +4,7 @@ use crate::{
     tar_id::TarId,
     templates::TarFileInfo,
     util::{handle_range},
-    AppState,
+    AppState, responses::ErrorResponse,
 };
 use age::stream::StreamReader;
 use askama::Template;
@@ -56,11 +56,7 @@ pub fn get_download_raw(
     request: &rouille::Request,
     id: TarHash,
 ) -> anyhow::Result<Response> {
-    let m = if let Some(m) = state.meta.get(&id)? {
-        m
-    } else {
-        return Ok(Response::empty_404());
-    };
+    let m = state.meta.get(&id)?.ok_or_else(ErrorResponse::not_found)?;
 
     let path = format!("data/{}.tar.age", &id);
     if m.finished {
@@ -89,11 +85,7 @@ pub fn get_download(
 ) -> anyhow::Result<Response> {
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
-    let m = if let Some(m) = state.meta.get(&hash)? {
-        m
-    } else {
-        return Ok(Response::empty_404());
-    };
+    let m = state.meta.get(&hash)?.ok_or_else(ErrorResponse::not_found)?;
 
     let offset = request
         .get_param("offset")
@@ -162,11 +154,7 @@ fn get_decrypted_reader(
 ) -> anyhow::Result<Result<(StreamReader<File>, MetaData), Response>> {
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
-    let m = if let Some(m) = state.meta.get(&hash)? {
-        m
-    } else {
-        return Ok(Err(Response::empty_404()));
-    };
+    let m = state.meta.get(&hash)?.ok_or_else(ErrorResponse::not_found)?;
 
     if !m.finished {
         return Ok(Err(

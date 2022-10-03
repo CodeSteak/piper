@@ -28,6 +28,13 @@ impl ErrorResponse {
             error: "Not implemented yet :/".into(),
         }
     }
+
+    pub fn not_found() -> Self {
+        Self {
+            status: 404,
+            error: "404 - Not found :/".into(),
+        }
+    }
 }
 
 impl Display for ErrorResponse {

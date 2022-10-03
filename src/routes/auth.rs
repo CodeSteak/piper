@@ -193,7 +193,7 @@ pub fn delete_raw(
     let m = if let Some(m) = state.meta.get(&hash)? {
         m
     } else {
-        return Ok(Response::empty_404());
+        return Ok(ErrorResponse::not_found().into());
     };
 
     if m.owner != user.username {
