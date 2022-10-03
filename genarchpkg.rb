@@ -35,7 +35,7 @@ Restart=on-failure
 RestartSec=30
 
 WorkingDirectory=/usr/share/#{pkgname}/
-Environment=CONFIG_FILE=/etc/#{pkgname}.toml
+Environment=CONFIG_FILE=/usr/share/#{pkgname}/#{pkgname}.toml
 ExecStart=/usr/bin/#{pkgname}
 
 [Install]
@@ -61,7 +61,7 @@ sha256sums=('#{Digest::SHA2.new(256).hexdigest File.read("archpkg/#{pkgname}-#{v
             '#{Digest::SHA2.new(256).hexdigest service}'
             '#{Digest::SHA2.new(256).hexdigest conf}')
 
-backup=('etc/#{pkgname}.yaml')
+backup=('usr/share/#{pkgname}/#{pkgname}.toml')
 
 build() {
   cargo build --release
@@ -72,7 +72,7 @@ check() {
 }
 
 package() {
-  install -Dm644 "#{pkgname}.toml" "$pkgdir"/etc/#{pkgname}.toml
+  install -Dm644 "#{pkgname}.toml" "$pkgdir"/usr/share/#{pkgname}/#{pkgname}.toml
   install -Dm644 "#{pkgname}.service" "$pkgdir"/usr/lib/systemd/system/#{pkgname}.service
 
   find static/ -type f -exec install -Dm644 {} "$pkgdir"/usr/share/#{pkgname}/{} \\;

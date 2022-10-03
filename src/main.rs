@@ -24,7 +24,9 @@ pub struct AppState {
 }
 
 fn main() {
-    let config_file = std::env::args().nth(1).unwrap_or("config.toml".to_string());
+    let config_file = std::env::var("CONFIG_FILE").unwrap_or("config.toml".to_string());
+    println!("Loading config from {}", config_file);
+    
     let config = config::Config::load(&config_file).unwrap();
 
     let state = AppState {
