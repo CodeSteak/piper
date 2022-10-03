@@ -34,7 +34,12 @@ nav {
     flex-direction: column;
 }
 
+
 .spacer {
+    height: 2.5rem;
+}
+
+.spacer-grow {
     flex-grow: 1;
     min-height: 1rem;
 }
@@ -135,6 +140,7 @@ pre {
         <div class="center"> 
             <pre data-copy-on-click="true">curl 'https://{{hostname}}/{{id}}/' | tar -xkvf -</pre>
         </div>
+        <div class="spacer"></div>
         <ul class="filelist">
             {% for file in files %}
             {% if !file.is_dir%}
@@ -157,7 +163,7 @@ pre {
         </p>
 
 
-        <div class="spacer"></div>
+        <div class="spacer-grow"></div>
 
         <a class="button" href="pipe?name=archive.tar"> Download as TAR </a>
         <a class="button" href="zip"> Download as ZIP </a>

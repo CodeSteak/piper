@@ -29,7 +29,7 @@ pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result
         let mut ws = websocket.recv().unwrap();
 
         let _ = ws.send_text(&format!(
-            "http://{}/{}/",
+            "https://{}/{}/",
             &state.config.general.hostname, id_str
         ));
 
@@ -108,8 +108,9 @@ pub fn post_upload(state: &AppState, request: &rouille::Request) -> anyhow::Resu
     })?;
 
     Ok(rouille::Response::text(format!(
-        "http://{}/{}/",
-        &state.config.general.hostname, id_str
+        "===\n\nhttps://{}/{}/\n\n===\n\ncurl 'https://{}/{}/' | tar -xkvf -\n\n===\n",
+        &state.config.general.hostname, id_str,
+        &state.config.general.hostname, id_str,
     )))
 }
 

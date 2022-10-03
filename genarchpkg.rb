@@ -1,6 +1,6 @@
 #! /usr/bin/env ruby
 
-rel = 2
+rel =  Time.now.to_i / 100
 pkgname = File.read("Cargo.toml").scan(/^name\s*=\s*\"([\w-]+)\"/)[0][0]
 version = File.read("Cargo.toml").scan(/^version\s*=\s*\"([\d\.]+)\"/)[0][0]
 
@@ -18,6 +18,11 @@ File.write("archpkg/#{pkgname}.toml", conf)
 
 require 'digest'
 
+sysusers = %{
+u tarcloud 248 "tarcloud user" /var/lib/tarcloud /bin/bash
+}
+File.write("archpkg/#{pkgname}.sysusers", sysusers)
+
 service = %{
 [Unit]
 Description=Tar Cloud
@@ -25,18 +30,19 @@ Requires=network-online.target
 After=network-online.target
 
 [Service]
-DynamicUser=yes
+User=tarcloud
 ProtectSystem=full
-PrivateDevices=true
+PrivateDevices=yes
+PrivateTmp=yes
 NoNewPrivileges=true
 
 Type=simple
 Restart=on-failure
 RestartSec=30
 
-StateDirectory=/usr/share/#{pkgname}/
-WorkingDirectory=/usr/share/#{pkgname}/
-Environment=CONFIG_FILE=/usr/share/#{pkgname}/#{pkgname}.toml
+ReadWritePaths=/var/lib/#{pkgname}/
+WorkingDirectory=/var/lib/#{pkgname}/
+Environment=CONFIG_FILE=/etc/#{pkgname}.toml
 ExecStart=/usr/bin/#{pkgname}
 
 [Install]
@@ -56,13 +62,15 @@ license=('MIT')
 
 source=("#{pkgname}-#{version}.tar.gz"
         "#{pkgname}.service"
+        "#{pkgname}.sysusers"
         "#{pkgname}.toml")
 
 sha256sums=('#{Digest::SHA2.new(256).hexdigest File.read("archpkg/#{pkgname}-#{version}.tar.gz")}'
             '#{Digest::SHA2.new(256).hexdigest service}'
+            '#{Digest::SHA2.new(256).hexdigest sysusers}'
             '#{Digest::SHA2.new(256).hexdigest conf}')
 
-backup=('usr/share/#{pkgname}/#{pkgname}.toml')
+backup=('etc/#{pkgname}.toml')
 
 build() {
   cargo build --release
@@ -73,10 +81,13 @@ check() {
 }
 
 package() {
-  install -Dm644 "#{pkgname}.toml" "$pkgdir"/usr/share/#{pkgname}/#{pkgname}.toml
+  install -Dm600 -o 248 -g 248 "#{pkgname}.toml" "$pkgdir"/etc/#{pkgname}.toml
   install -Dm644 "#{pkgname}.service" "$pkgdir"/usr/lib/systemd/system/#{pkgname}.service
+  install -Dm644 "#{pkgname}.sysusers" "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
 
-  find static/ -type f -exec install -Dm644 {} "$pkgdir"/usr/share/#{pkgname}/{} \\;
+  install -d -m 700 -o 248 -g 248 "$pkgdir"/var/lib/#{pkgname}/
+
+  find static/ -type f -exec install -Dm600 -o 248 -g 248 {} "$pkgdir"/var/lib/#{pkgname}/{} \\;
 
   install -Dm755 "target/release/#{pkgname}" "$pkgdir/usr/bin/#{pkgname}"
 }
