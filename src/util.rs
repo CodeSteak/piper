@@ -65,7 +65,7 @@ pub fn handle_range<T: Read + Seek + Send + 'static>(
                 headers: vec![
                     (
                         "Content-Range".into(),
-                        format!("bytes {}-{}/{}", offset, offset + length - 1, rest_len + current_pos).into(),
+                        format!("bytes {}-{}/{}", offset, offset + length - 1, rest_len).into(),
                     ),
                     ("Content-Length".into(), format!("{}", length).into()),
                     ("Content-Type".into(), "application/octet-stream".into()),
