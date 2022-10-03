@@ -98,10 +98,43 @@ a.button:hover {
     color: whitesmoke;
 }
 
+.center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+pre {
+    background-color: whitesmoke;
+    border: 1px solid black;
+    text-transform: none;
+    padding: 0.5rem;
+    margin: 0.5rem;
+}
+
+*[data-copy-on-click="true"]:hover {
+    text-decoration: underline;
+}
+
+.tooltip {
+    position: absolute;
+    z-index: 1000;
+    display: inline-block;
+
+    background-color: white;
+    border: 1px solid black;
+    padding: 0.5rem;
+    margin: 0.5rem;
+}
+
     </style>
 </head>
 <body>
     <main>
+        <div class="center"> 
+            <pre data-copy-on-click="true">curl 'https://{{hostname}}/{{id}}/' | tar -xkvf -</pre>
+        </div>
         <ul class="filelist">
             {% for file in files %}
             {% if !file.is_dir%}
@@ -126,12 +159,35 @@ a.button:hover {
 
         <div class="spacer"></div>
 
+        <a class="button" href="pipe?name=archive.tar"> Download as TAR </a>
         <a class="button" href="zip"> Download as ZIP </a>
 
         <p>
             Dieser Link ist gültig bis {{valid_until}} UTC.
         </p>
-        
     </nav>
+
+    <script>
+        function main() {
+            document.querySelectorAll('[data-copy-on-click="true"]').forEach((el) => {
+                el.addEventListener('click', (evt) => {
+                    navigator.clipboard.writeText(el.innerText);
+
+                    const tooltip = document.createElement('div');
+                    tooltip.classList.add('tooltip');
+                    tooltip.innerText = 'Copied to clipboard!';
+                    tooltip.style.top = `${evt.clientY}px`;
+                    tooltip.style.left = `${evt.clientX}px`;
+                    el.appendChild(tooltip);
+
+                    setTimeout(() => {
+                        tooltip.remove();
+                    }, 2500);
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', main, false);
+    </script>
 </body>
 </html>

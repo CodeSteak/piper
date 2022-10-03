@@ -1,6 +1,6 @@
 #! /usr/bin/env ruby
 
-rel = 0
+rel = 2
 pkgname = File.read("Cargo.toml").scan(/^name\s*=\s*\"([\w-]+)\"/)[0][0]
 version = File.read("Cargo.toml").scan(/^version\s*=\s*\"([\d\.]+)\"/)[0][0]
 
@@ -20,7 +20,7 @@ require 'digest'
 
 service = %{
 [Unit]
-Description=Project Home
+Description=Tar Cloud
 Requires=network-online.target
 After=network-online.target
 
@@ -34,6 +34,7 @@ Type=simple
 Restart=on-failure
 RestartSec=30
 
+StateDirectory=/usr/share/#{pkgname}/
 WorkingDirectory=/usr/share/#{pkgname}/
 Environment=CONFIG_FILE=/usr/share/#{pkgname}/#{pkgname}.toml
 ExecStart=/usr/bin/#{pkgname}

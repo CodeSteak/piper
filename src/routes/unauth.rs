@@ -318,6 +318,8 @@ pub fn get_ui_index(
 
     let mut index = crate::templates::TarIndex {
         files: Vec::new(),
+        hostname: state.config.general.hostname.clone(),
+        id: id.to_string(),
         craeted_at: chrono::NaiveDateTime::from_timestamp(meta_data.created_at_unix as i64, 0),
         valid_until: chrono::NaiveDateTime::from_timestamp(meta_data.delete_at_unix as i64, 0),
     };
