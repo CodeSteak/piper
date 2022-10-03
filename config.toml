@@ -1,0 +1,7 @@
+[general]
+hostname = "tar.willmann.dev"
+listen = "[::1]:8000"
+
+[[users]]
+username = "codesteak"
+token = "coopighohfoNai6a"

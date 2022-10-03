@@ -1,20 +1,22 @@
-use std::{str::FromStr, fmt::Display};
-use rand::Rng;
 use crate::bip39::WORDS as BIP39_WORDS;
+use rand::Rng;
+use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug)]
 pub struct TarId {
     prefix: u16,
-    words : [u16; 4],
+    words: [u16; 4],
 }
 
 impl Display for TarId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:04}-{}-{}-{}-{}", 
+        write!(
+            f,
+            "{:04}-{}-{}-{}-{}",
             self.prefix,
-            BIP39_WORDS[self.words[0] as usize], 
-            BIP39_WORDS[self.words[1] as usize], 
-            BIP39_WORDS[self.words[2] as usize], 
+            BIP39_WORDS[self.words[0] as usize],
+            BIP39_WORDS[self.words[1] as usize],
+            BIP39_WORDS[self.words[2] as usize],
             BIP39_WORDS[self.words[3] as usize]
         )
     }
@@ -36,11 +38,11 @@ impl TarId {
     pub fn to_string(&self) -> String {
         format!("{}", self)
     }
-    
-    pub fn parse(input : &str) -> Option<Self> {
+
+    pub fn parse(input: &str) -> Option<Self> {
         let mut input = input.split('-');
         let num = input.next()?.parse().ok()?;
-        
+
         let mut words = [0; 4];
         for i in 0..4 {
             let word = input.next()?;
@@ -48,7 +50,8 @@ impl TarId {
                 Ok(idx) => words[i] = idx as u16,
                 Err(_) if word.len() <= 10 && word.len() >= 2 => {
                     let lower = word.to_lowercase();
-                    let candidates : Vec<_> = BIP39_WORDS.iter()
+                    let candidates: Vec<_> = BIP39_WORDS
+                        .iter()
                         .enumerate()
                         .filter(|(_, w)| levenshtein::levenshtein(&lower, w) <= 1)
                         .map(|(id, _)| id)
@@ -59,7 +62,7 @@ impl TarId {
                     } else {
                         return None;
                     }
-                },
+                }
                 Err(_) => {
                     return None;
                 }
@@ -71,20 +74,16 @@ impl TarId {
             return None;
         }
 
-        Some(TarId {
-            prefix: num,
-            words,
-        })
+        Some(TarId { prefix: num, words })
     }
 }
 
 impl FromStr for TarId {
     type Err = ();
-    fn from_str(input : &str) -> Result<Self, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         TarId::parse(input).ok_or(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -93,7 +92,7 @@ mod tests {
 
     #[test]
     fn bip39_are_sorted() {
-        let mut sorted  =  BIP39_WORDS.to_vec();
+        let mut sorted = BIP39_WORDS.to_vec();
         sorted.sort();
         assert_eq!(BIP39_WORDS.to_vec(), sorted);
     }

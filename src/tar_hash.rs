@@ -1,4 +1,7 @@
-use std::{str::FromStr, fmt::{Display, Formatter}};
+use std::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 use argon2::{Config, ThreadMode, Variant, Version};
 
@@ -6,12 +9,11 @@ use crate::tar_id::TarId;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct TarHash {
-    hash : [u8; 32],
+    hash: [u8; 32],
 }
 
 impl TarHash {
-
-    pub fn from_tarid(id : &TarId, salt : &str) -> Self {
+    pub fn from_tarid(id: &TarId, salt: &str) -> Self {
         let password = id.to_string();
         let config = Config {
             variant: Variant::Argon2i,
@@ -27,7 +29,6 @@ impl TarHash {
 
         let hash = argon2::hash_raw(password.as_bytes(), salt.as_bytes(), &config).unwrap();
         assert!(hash.len() == 32);
-
 
         Self {
             hash: hash.try_into().unwrap(),

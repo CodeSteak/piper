@@ -1,15 +1,26 @@
-use std::{fs::File, io::{Read, Seek}, path::{PathBuf}, io::Write};
+use crate::{
+    meta::MetaStore,
+    tar_hash::TarHash,
+    tar_id::TarId,
+    util::{escape_html, handle_range},
+    AppState,
+};
 use age::stream::StreamReader;
 use rouille::Response;
-use crate::{tar_hash::TarHash, meta::MetaStore, AppState, tar_id::TarId, util::{escape_html, handle_range}};
+use std::{
+    fs::File,
+    io::Write,
+    io::{Read, Seek},
+    path::PathBuf,
+};
 
-const DEFAULT_DOWNLOAD_TIMEOUT : u64 = 60;
+const DEFAULT_DOWNLOAD_TIMEOUT: u64 = 60;
 
 struct UnfinishedBlockingFileReader {
-    file : File,
-    id : TarHash,
-    meta : MetaStore,
-    timeout : u64,
+    file: File,
+    id: TarHash,
+    meta: MetaStore,
+    timeout: u64,
 }
 
 impl Read for UnfinishedBlockingFileReader {
@@ -20,24 +31,32 @@ impl Read for UnfinishedBlockingFileReader {
                     let m = self.meta.get(&self.id).ok().flatten();
                     match m {
                         None => break,
-                        Some(m) if m.finished => { break },
-                        Some(_) => { std::thread::sleep(std::time::Duration::from_secs(1)); }
+                        Some(m) if m.finished => break,
+                        Some(_) => {
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                        }
                     }
                 }
                 Ok(n) => {
                     return Ok(n);
-                },
+                }
                 Err(e) => {
                     return Err(e);
-                } ,
+                }
             }
         }
         Ok(0)
     }
 }
 
-pub fn get_download_raw(state: &AppState, request: &rouille::Request, id: TarHash) -> anyhow::Result<Response> {
-    let m = if let Some(m) = state.meta.get(&id)? {m} else {
+pub fn get_download_raw(
+    state: &AppState,
+    request: &rouille::Request,
+    id: TarHash,
+) -> anyhow::Result<Response> {
+    let m = if let Some(m) = state.meta.get(&id)? {
+        m
+    } else {
         return Ok(Response::empty_404());
     };
 
@@ -61,10 +80,16 @@ pub fn get_download_raw(state: &AppState, request: &rouille::Request, id: TarHas
     }
 }
 
-pub fn get_download(state : &AppState, request : &rouille::Request, id : TarId) -> anyhow::Result<Response> {
-    let hash = TarHash::from_tarid(&id, &state.hostname);
+pub fn get_download(
+    state: &AppState,
+    request: &rouille::Request,
+    id: TarId,
+) -> anyhow::Result<Response> {
+    let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
-    let m = if let Some(m) = state.meta.get(&hash)? {m} else {
+    let m = if let Some(m) = state.meta.get(&hash)? {
+        m
+    } else {
         return Ok(Response::empty_404());
     };
 
@@ -78,9 +103,7 @@ pub fn get_download(state : &AppState, request : &rouille::Request, id : TarId) 
         .map(|v| v.parse::<u64>())
         .transpose()?;
 
-    let name = request
-        .get_param("name")
-        .map(|v| v.to_string());
+    let name = request.get_param("name").map(|v| v.to_string());
 
     let path = PathBuf::from(&format!("data/{}.tar.age", hash));
     let file = std::fs::File::open(path)?;
@@ -95,11 +118,12 @@ pub fn get_download(state : &AppState, request : &rouille::Request, id : TarId) 
             meta: state.meta.clone(),
             timeout: DEFAULT_DOWNLOAD_TIMEOUT,
         };
-        let decryptor = match age::Decryptor::new( reader)? {
+        let decryptor = match age::Decryptor::new(reader)? {
             age::Decryptor::Passphrase(decryptor) => decryptor,
             _ => return Ok(Response::empty_404()),
         };
-        let de_reader = decryptor.decrypt(&age::secrecy::SecretString::from(id.to_string()), None)?;
+        let de_reader =
+            decryptor.decrypt(&age::secrecy::SecretString::from(id.to_string()), None)?;
         let data = rouille::ResponseBody::from_reader(de_reader);
 
         return Ok(rouille::Response {
@@ -110,43 +134,48 @@ pub fn get_download(state : &AppState, request : &rouille::Request, id : TarId) 
         });
     }
 
-
-    let decryptor = match age::Decryptor::new( file)? {
+    let decryptor = match age::Decryptor::new(file)? {
         age::Decryptor::Passphrase(decryptor) => decryptor,
         _ => return Ok(Response::empty_404()),
     };
 
-    let mut de_reader = decryptor.decrypt(&age::secrecy::SecretString::from(id.to_string()), None)?;
+    let mut de_reader =
+        decryptor.decrypt(&age::secrecy::SecretString::from(id.to_string()), None)?;
     if let Some(offset) = offset {
         de_reader.seek(std::io::SeekFrom::Start(offset))?;
     }
 
     let res = handle_range(&request, length, de_reader)?;
     let res = match name {
-        Some(name) => {
-            res.with_content_disposition_attachment(&name)
-        },
+        Some(name) => res.with_content_disposition_attachment(&name),
         None => res,
     };
 
     Ok(res)
 }
 
-fn get_decrypted_reader(state : &AppState, id : &TarId) ->  anyhow::Result<Result<StreamReader<File>, Response>> {
-    let hash = TarHash::from_tarid(&id, &state.hostname);
+fn get_decrypted_reader(
+    state: &AppState,
+    id: &TarId,
+) -> anyhow::Result<Result<StreamReader<File>, Response>> {
+    let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
-    let m = if let Some(m) = state.meta.get(&hash)? {m} else {
+    let m = if let Some(m) = state.meta.get(&hash)? {
+        m
+    } else {
         return Ok(Err(Response::empty_404()));
     };
 
     if !m.finished {
-        return Ok(Err(Response::text("Upload not finished yet").with_status_code(200)));
+        return Ok(Err(
+            Response::text("Upload not finished yet").with_status_code(200)
+        ));
     }
 
     let path = PathBuf::from(&format!("data/{}.tar.age", hash));
     let file = std::fs::File::open(path)?;
 
-    let decryptor = match age::Decryptor::new( file)? {
+    let decryptor = match age::Decryptor::new(file)? {
         age::Decryptor::Passphrase(decryptor) => decryptor,
         _ => return Ok(Err(Response::empty_404())),
     };
@@ -154,13 +183,15 @@ fn get_decrypted_reader(state : &AppState, id : &TarId) ->  anyhow::Result<Resul
     Ok(Ok(de_reader))
 }
 
-
-pub fn get_tar_to_zip(state : &AppState, _request : &rouille::Request, id : TarId) -> anyhow::Result<Response> {
-
+pub fn get_tar_to_zip(
+    state: &AppState,
+    _request: &rouille::Request,
+    id: TarId,
+) -> anyhow::Result<Response> {
     struct FakeWriter {
-        len : u64,
+        len: u64,
     }
-    
+
     impl Write for FakeWriter {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
             self.len += buf.len() as u64;
@@ -172,13 +203,13 @@ pub fn get_tar_to_zip(state : &AppState, _request : &rouille::Request, id : TarI
     }
 
     struct Tar2ZipReader {
-        buffer : Vec<u8>,
-        receiver : std::sync::mpsc::Receiver<Vec<u8>>,    
+        buffer: Vec<u8>,
+        receiver: std::sync::mpsc::Receiver<Vec<u8>>,
     }
 
     struct Tar2ZipWriter {
         written: u64,
-        sender : std::sync::mpsc::SyncSender<Vec<u8>>,
+        sender: std::sync::mpsc::SyncSender<Vec<u8>>,
     }
 
     impl Read for Tar2ZipReader {
@@ -187,7 +218,7 @@ pub fn get_tar_to_zip(state : &AppState, _request : &rouille::Request, id : TarI
                 match self.receiver.recv() {
                     Ok(v) => {
                         self.buffer = v;
-                    },
+                    }
                     Err(_) => return Ok(0),
                 };
             }
@@ -200,7 +231,9 @@ pub fn get_tar_to_zip(state : &AppState, _request : &rouille::Request, id : TarI
 
     impl Write for Tar2ZipWriter {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            self.sender.send(buf.to_vec()).map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "send error"))?;
+            self.sender
+                .send(buf.to_vec())
+                .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "send error"))?;
             self.written += buf.len() as u64;
             Ok(buf.len())
         }
@@ -218,25 +251,19 @@ pub fn get_tar_to_zip(state : &AppState, _request : &rouille::Request, id : TarI
 
     let (sender, receiver) = std::sync::mpsc::sync_channel(1024);
 
-    let sender = Tar2ZipWriter {
-        written: 0,
-        sender,
-    };
+    let sender = Tar2ZipWriter { written: 0, sender };
 
     let receiver = Tar2ZipReader {
-        buffer : Vec::new(),
+        buffer: Vec::new(),
         receiver,
     };
 
-    
-    let fake_writer = FakeWriter {
-        len : 0,
-    };
+    let fake_writer = FakeWriter { len: 0 };
 
     let mut archive = tar::Archive::new(&mut reader);
     let mut zip = streaming_zip::Archive::new(fake_writer);
     let mut content_len = 0;
-    
+
     for entry in archive.entries_with_seek()? {
         let entry = entry?;
         let path = entry.path()?.to_string_lossy().to_string();
@@ -248,7 +275,7 @@ pub fn get_tar_to_zip(state : &AppState, _request : &rouille::Request, id : TarI
             chrono::NaiveDateTime::from_timestamp(mtime as i64, 0),
             streaming_zip::CompressionMode::Store,
             &mut std::io::empty(),
-            true
+            true,
         )?;
     }
     let _ = reader.seek(std::io::SeekFrom::Start(0))?;
@@ -268,7 +295,7 @@ pub fn get_tar_to_zip(state : &AppState, _request : &rouille::Request, id : TarI
                 chrono::NaiveDateTime::from_timestamp(mtime as i64, 0),
                 streaming_zip::CompressionMode::Store,
                 &mut entry,
-                true
+                true,
             )?;
         }
 
@@ -281,15 +308,18 @@ pub fn get_tar_to_zip(state : &AppState, _request : &rouille::Request, id : TarI
 
     Ok(rouille::Response {
         status_code: 200,
-        headers: vec![
-            ("Content-Type".into(), "application/zip ".into()),
-        ],
+        headers: vec![("Content-Type".into(), "application/zip ".into())],
         data: rouille::ResponseBody::from_reader_and_size(receiver, total_len as _),
         upgrade: None,
-    }.with_content_disposition_attachment("archive.zip"))
+    }
+    .with_content_disposition_attachment("archive.zip"))
 }
 
-pub fn get_ui_index(state : &AppState, _request : &rouille::Request, id : TarId) ->  anyhow::Result<Response> {
+pub fn get_ui_index(
+    state: &AppState,
+    _request: &rouille::Request,
+    id: TarId,
+) -> anyhow::Result<Response> {
     let reader = match get_decrypted_reader(state, &id) {
         Ok(Ok(reader)) => reader,
         Ok(Err(res)) => return Ok(res),
@@ -305,9 +335,14 @@ pub fn get_ui_index(state : &AppState, _request : &rouille::Request, id : TarId)
         if path.is_dir() {
             continue;
         }
-        let base =  escape_html(&path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default());
+        let base = escape_html(
+            &path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default(),
+        );
         let path = escape_html(&path.to_string_lossy());
-        
+
         let offset = entry.raw_file_position();
         let length = entry.size();
 
@@ -318,5 +353,3 @@ pub fn get_ui_index(state : &AppState, _request : &rouille::Request, id : TarId)
 
     Ok(Response::html(out))
 }
-
-
