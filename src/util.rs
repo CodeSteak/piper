@@ -8,23 +8,6 @@ pub fn now_unix() -> u64 {
         .as_secs()
 }
 
-pub fn escape_html(s: &str) -> String {
-    let mut out = String::new();
-    for c in s.chars() {
-        match c {
-            'a'..='z' => out.push(c),
-            'A'..='Z' => out.push(c),
-            '0'..='9' => out.push(c),
-            ' ' => out.push(c),
-            '-' => out.push(c),
-            '_' => out.push(c),
-            '.' => out.push(c),
-            _ => out.push_str(&format!("&#x{:x};", c as u32)),
-        }
-    }
-    out
-}
-
 /***
  * Handles range requests if needed.
  *

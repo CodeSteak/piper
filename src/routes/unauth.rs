@@ -3,7 +3,7 @@ use crate::{
     tar_hash::TarHash,
     tar_id::TarId,
     templates::TarFileInfo,
-    util::{escape_html, handle_range},
+    util::{handle_range},
     AppState,
 };
 use age::stream::StreamReader;
