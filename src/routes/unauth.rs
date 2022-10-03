@@ -1,11 +1,13 @@
 use crate::{
-    meta::MetaStore,
+    meta::{MetaData, MetaStore},
     tar_hash::TarHash,
     tar_id::TarId,
+    templates::TarFileInfo,
     util::{escape_html, handle_range},
     AppState,
 };
 use age::stream::StreamReader;
+use askama::Template;
 use rouille::Response;
 use std::{
     fs::File,
@@ -157,7 +159,7 @@ pub fn get_download(
 fn get_decrypted_reader(
     state: &AppState,
     id: &TarId,
-) -> anyhow::Result<Result<StreamReader<File>, Response>> {
+) -> anyhow::Result<Result<(StreamReader<File>, MetaData), Response>> {
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
     let m = if let Some(m) = state.meta.get(&hash)? {
@@ -180,7 +182,7 @@ fn get_decrypted_reader(
         _ => return Ok(Err(Response::empty_404())),
     };
     let de_reader = decryptor.decrypt(&age::secrecy::SecretString::from(id.to_string()), None)?;
-    Ok(Ok(de_reader))
+    Ok(Ok((de_reader, m)))
 }
 
 pub fn get_tar_to_zip(
@@ -243,7 +245,7 @@ pub fn get_tar_to_zip(
         }
     }
 
-    let mut reader = match get_decrypted_reader(state, &id) {
+    let (mut reader, _) = match get_decrypted_reader(state, &id) {
         Ok(Ok(reader)) => reader,
         Ok(Err(res)) => return Ok(res),
         Err(e) => return Err(e),
@@ -320,36 +322,47 @@ pub fn get_ui_index(
     _request: &rouille::Request,
     id: TarId,
 ) -> anyhow::Result<Response> {
-    let reader = match get_decrypted_reader(state, &id) {
+    let (reader, meta_data) = match get_decrypted_reader(state, &id) {
         Ok(Ok(reader)) => reader,
         Ok(Err(res)) => return Ok(res),
         Err(e) => return Err(e),
     };
 
-    let mut archive = tar::Archive::new(reader);
+    let mut index = crate::templates::TarIndex {
+        files: Vec::new(),
+        craeted_at: chrono::NaiveDateTime::from_timestamp(meta_data.created_at_unix as i64, 0),
+        valid_until: chrono::NaiveDateTime::from_timestamp(meta_data.delete_at_unix as i64, 0),
+    };
 
-    let mut out = String::new();
+    let mut archive = tar::Archive::new(reader);
     for entry in archive.entries_with_seek()? {
         let entry = entry?;
         let path = entry.path()?;
         if path.is_dir() {
             continue;
         }
-        let base = escape_html(
-            &path
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_default(),
-        );
-        let path = escape_html(&path.to_string_lossy());
+        let name = &path
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default()
+            .to_string();
+
+        let path = &path.to_string_lossy().to_string();
 
         let offset = entry.raw_file_position();
         let length = entry.size();
 
         let mtime = entry.header().mtime().unwrap_or(0);
 
-        out.push_str(&format!("<li><a href='pipe?offset={offset}&length={length}&name={base}'>{path}</a>  {length}  {mtime}</li>\n"))
+        index.files.push(TarFileInfo {
+            is_dir: path.ends_with("/"),
+            path: path.clone(),
+            name: name.clone(),
+            offset,
+            size: length,
+            m_time: chrono::NaiveDateTime::from_timestamp(mtime as i64, 0),
+        });
     }
 
-    Ok(Response::html(out))
+    Ok(Response::html(index.render()?))
 }

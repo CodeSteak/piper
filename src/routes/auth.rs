@@ -1,4 +1,4 @@
-use std::{io::Read};
+use std::io::Read;
 
 use rouille::{
     websocket::{self, Websocket},

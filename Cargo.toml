@@ -5,6 +5,19 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package.scrypt]
+opt-level = 3
+
+
+[profile.release]
+codegen-units = 1
+opt-level = 3
+lto = true
+strip = "debuginfo"
+
 [dependencies]
 rouille = "3.5.0"
 age = "0.8"
@@ -18,3 +31,4 @@ serde_json = "1.0"
 streaming-zip ={ version = "0.5.0"}
 chrono = "0.4"
 toml = "0.5"
+askama = "0.10"

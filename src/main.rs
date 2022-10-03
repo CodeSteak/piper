@@ -1,4 +1,4 @@
-use rouille::{Response};
+use rouille::Response;
 use tar_hash::TarHash;
 use tar_id::TarId;
 
@@ -11,6 +11,7 @@ mod responses;
 mod routes;
 mod tar_hash;
 mod tar_id;
+mod templates;
 mod util;
 
 #[macro_use]
