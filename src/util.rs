@@ -42,7 +42,9 @@ pub fn handle_range<T: Read + Seek + Send + 'static>(
         .and_then(|s| {
             let mut parts = s.splitn(2, '-');
             let offset = parts.next()?.parse::<u64>().ok()?;
-            let end = parts.next()?.parse::<u64>().ok()?;
+            // TODO: allow open-ended ranges
+            let end = parts.next()?;
+            let end = if end == "" {u64::MAX} else {end.parse::<u64>().ok()?};
 
             let length = end.saturating_sub(offset) + 1;
             Some((offset, length))
@@ -56,9 +58,24 @@ pub fn handle_range<T: Read + Seek + Send + 'static>(
             None => false,
         })
         .unwrap_or(true);
-    
     // if etag changed, return 200 and full file.
     let range = if if_range_fullfilled {range} else {None};
+
+    let if_match_value = request.header("If-Match").or_else(|| request.header("If-Match"));
+    let if_match_matches = match (if_match_value, mod_time) {
+        (Some(v), Some(time)) => {
+            v.contains(&format!("\"{}\"", time))
+        },
+        _ => false,
+    };
+
+    if !if_match_matches && request.header("If-Match").is_some() {
+        return Ok(rouille::Response::text("Precondition Failed.").with_status_code(412));
+    }
+
+    if if_match_matches && request.header("If-None-Match").is_some() {
+        return Ok(rouille::Response::text("Not Modified.").with_status_code(304));
+    }
 
     let current_pos = file.seek(std::io::SeekFrom::Current(0))?;
     let rest_len =
