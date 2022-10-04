@@ -1,4 +1,5 @@
 use std::io::Read;
+use common::{TarHash, TarPassword};
 
 use rouille::{
     websocket::{self, Websocket},
@@ -6,7 +7,7 @@ use rouille::{
 };
 
 use crate::{
-    config::UserConfig, meta::MetaData, responses::ErrorResponse, tar_hash::TarHash, tar_password::TarPassword,
+    config::UserConfig, meta::MetaData, responses::ErrorResponse,
     util::now_unix, AppState,
 };
 

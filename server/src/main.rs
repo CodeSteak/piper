@@ -1,16 +1,12 @@
 use rouille::Response;
-use tar_hash::TarHash;
-use tar_password::TarPassword;
+use common::{TarHash, TarPassword};
 
 use crate::responses::ErrorResponse;
 
-mod bip39;
 mod config;
 mod meta;
 mod responses;
 mod routes;
-mod tar_hash;
-mod tar_password;
 mod templates;
 mod util;
 

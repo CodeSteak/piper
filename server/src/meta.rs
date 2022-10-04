@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::tar_hash::TarHash;
+use common::{TarHash};
 
 #[derive(Clone)]
 pub struct MetaStore {

@@ -1,7 +1,5 @@
 use crate::{
     meta::{MetaData, MetaStore},
-    tar_hash::TarHash,
-    tar_password::TarPassword,
     templates::TarFileInfo,
     util::{handle_range},
     AppState, responses::ErrorResponse,
@@ -9,6 +7,7 @@ use crate::{
 use age::stream::StreamReader;
 use askama::Template;
 use rouille::Response;
+use common::{TarHash, TarPassword};
 use std::{
     fs::File,
     io::Write,
