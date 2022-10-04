@@ -60,7 +60,8 @@ pub fn get_download_raw(
 
     let path = format!("data/{}.tar.age", &id);
     if m.finished {
-        handle_range(request, None, File::open(&path)?)
+        let m_time = std::fs::metadata(&path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+        handle_range(request, None, Some(m_time), File::open(&path)?)
     } else {
         let file = File::open(&path)?;
         let reader = UnfinishedBlockingFileReader {
@@ -100,6 +101,7 @@ pub fn get_download(
     let name = request.get_param("name").map(|v| v.to_string());
 
     let path = PathBuf::from(&format!("data/{}.tar.age", hash));
+    let m_time = std::fs::metadata(&path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
     let file = std::fs::File::open(path)?;
     if !m.finished {
         if offset.is_some() || length.is_some() {
@@ -139,7 +141,7 @@ pub fn get_download(
         de_reader.seek(std::io::SeekFrom::Start(offset))?;
     }
 
-    let res = handle_range(&request, length, de_reader)?;
+    let res = handle_range(&request, length, Some(m_time), de_reader)?;
     let res = match name {
         Some(name) => res.with_content_disposition_attachment(&name),
         None => res,
