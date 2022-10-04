@@ -1,6 +1,6 @@
 use rouille::Response;
 use tar_hash::TarHash;
-use tar_id::TarId;
+use tar_password::TarPassword;
 
 use crate::responses::ErrorResponse;
 
@@ -10,7 +10,7 @@ mod meta;
 mod responses;
 mod routes;
 mod tar_hash;
-mod tar_id;
+mod tar_password;
 mod templates;
 mod util;
 
@@ -55,20 +55,20 @@ fn main() {
             (GET) ["/upload"] => {
                 routes::ws_upload(&state, request)
             },
-            (GET) ["/{id}/", id : TarId] => {
+            (GET) ["/{id}/", id : TarPassword] => {
                 if is_browser {
                     routes::get_ui_index(&state, request, id)
                 } else {
                     routes::get_download(&state, request, id)
                 }
             },
-            (DELETE) ["/{id}/", id : TarId] => {
+            (DELETE) ["/{id}/", id : TarPassword] => {
                 routes::delete(&state, request, id)
             },
-            (GET) ["/{id}/pipe", id : TarId] => {
+            (GET) ["/{id}/pipe", id : TarPassword] => {
                 routes::get_download(&state, request, id)
             },
-            (GET) ["/{id}/zip", id : TarId] => {
+            (GET) ["/{id}/zip", id : TarPassword] => {
                 routes::get_tar_to_zip(&state, request, id)
             },
             (GET) ["/raw/{id}/", id : TarHash] => {

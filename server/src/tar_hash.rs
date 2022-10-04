@@ -5,7 +5,7 @@ use std::{
 
 use argon2::{Config, ThreadMode, Variant, Version};
 
-use crate::tar_id::TarId;
+use crate::tar_password::TarPassword;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct TarHash {
@@ -13,7 +13,7 @@ pub struct TarHash {
 }
 
 impl TarHash {
-    pub fn from_tarid(id: &TarId, salt: &str) -> Self {
+    pub fn from_tarid(id: &TarPassword, salt: &str) -> Self {
         let password = id.to_string();
         let config = Config {
             variant: Variant::Argon2i,

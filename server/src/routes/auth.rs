@@ -6,7 +6,7 @@ use rouille::{
 };
 
 use crate::{
-    config::UserConfig, meta::MetaData, responses::ErrorResponse, tar_hash::TarHash, tar_id::TarId,
+    config::UserConfig, meta::MetaData, responses::ErrorResponse, tar_hash::TarHash, tar_password::TarPassword,
     util::now_unix, AppState,
 };
 
@@ -20,7 +20,7 @@ pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result
         }
     };
 
-    let id = TarId::generate();
+    let id = TarPassword::generate();
     let id_str = id.to_string();
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
@@ -89,7 +89,7 @@ pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result
 pub fn post_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result<Response> {
     let user = check_token(request, state)?;
 
-    let id = TarId::generate();
+    let id = TarPassword::generate();
     let id_str = id.to_string();
 
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
@@ -210,7 +210,7 @@ pub fn delete_raw(
     Ok(Response::text("Deleted"))
 }
 
-pub fn delete(state: &AppState, request: &rouille::Request, id: TarId) -> anyhow::Result<Response> {
+pub fn delete(state: &AppState, request: &rouille::Request, id: TarPassword) -> anyhow::Result<Response> {
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
     delete_raw(state, request, hash)
 }

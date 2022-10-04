@@ -1,7 +1,7 @@
 use crate::{
     meta::{MetaData, MetaStore},
     tar_hash::TarHash,
-    tar_id::TarId,
+    tar_password::TarPassword,
     templates::TarFileInfo,
     util::{handle_range},
     AppState, responses::ErrorResponse,
@@ -82,7 +82,7 @@ pub fn get_download_raw(
 pub fn get_download(
     state: &AppState,
     request: &rouille::Request,
-    id: TarId,
+    id: TarPassword,
 ) -> anyhow::Result<Response> {
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
@@ -152,7 +152,7 @@ pub fn get_download(
 
 fn get_decrypted_reader(
     state: &AppState,
-    id: &TarId,
+    id: &TarPassword,
 ) -> anyhow::Result<Result<(StreamReader<File>, MetaData), Response>> {
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
@@ -178,7 +178,7 @@ fn get_decrypted_reader(
 pub fn get_tar_to_zip(
     state: &AppState,
     _request: &rouille::Request,
-    id: TarId,
+    id: TarPassword,
 ) -> anyhow::Result<Response> {
     struct FakeWriter {
         len: u64,
@@ -310,7 +310,7 @@ pub fn get_tar_to_zip(
 pub fn get_ui_index(
     state: &AppState,
     _request: &rouille::Request,
-    id: TarId,
+    id: TarPassword,
 ) -> anyhow::Result<Response> {
     let (reader, meta_data) = match get_decrypted_reader(state, &id) {
         Ok(Ok(reader)) => reader,

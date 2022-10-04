@@ -3,12 +3,12 @@ use rand::Rng;
 use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug)]
-pub struct TarId {
+pub struct TarPassword {
     prefix: u16,
     words: [u16; 4],
 }
 
-impl Display for TarId {
+impl Display for TarPassword {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -22,7 +22,7 @@ impl Display for TarId {
     }
 }
 
-impl TarId {
+impl TarPassword {
     pub fn generate() -> Self {
         let mut rng = rand::thread_rng();
         let prefix = rng.gen_range(0..10000);
@@ -74,14 +74,14 @@ impl TarId {
             return None;
         }
 
-        Some(TarId { prefix: num, words })
+        Some(TarPassword { prefix: num, words })
     }
 }
 
-impl FromStr for TarId {
+impl FromStr for TarPassword {
     type Err = ();
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        TarId::parse(input).ok_or(())
+        TarPassword::parse(input).ok_or(())
     }
 }
 
@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let id = TarId::parse("0005-abandon-ability-able-about").unwrap();
+        let id = TarPassword::parse("0005-abandon-ability-able-about").unwrap();
         assert_eq!(id.prefix, 5);
         assert_eq!(id.words, [0, 1, 2, 3]);
 
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_parse_err() {
-        let id = TarId::parse("0005-abondon-abilty-able-abou").unwrap();
+        let id = TarPassword::parse("0005-abondon-abilty-able-abou").unwrap();
         assert_eq!(id.prefix, 5);
         assert_eq!(id.words, [0, 1, 2, 3]);
     }
