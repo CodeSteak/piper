@@ -1,5 +1,5 @@
 [package]
-name = "client"
+name = "toc"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,10 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0.9", features = ["derive"] }
 toml = "0.5"
-levenshtein = "1.0" 
-rand = "0.8"
+common = { path = "../common" }
 age = "0.8"
 tar = "0.4"
+anyhow = "1.0.65"
+serde = {version = "1.0.145", features = ["derive"]}
+dirs = "4.0.0"
+ureq = "2.5.0"

@@ -3,7 +3,7 @@
 members = [
     "server",
     "miniage",
-    "client",
+    "toc",
     "common",
 ]
 

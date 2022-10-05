@@ -2,7 +2,7 @@ use crate::bip39::WORDS as BIP39_WORDS;
 use rand::Rng;
 use std::{fmt::Display, str::FromStr};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TarPassword {
     prefix: u16,
     words: [u16; 4],
