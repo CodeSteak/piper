@@ -1,5 +1,5 @@
 use crate::bip39::WORDS as BIP39_WORDS;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,7 @@ impl Display for TarPassword {
 
 impl TarPassword {
     pub fn generate() -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rngs::StdRng::from_entropy();
         let prefix = rng.gen_range(0..10000);
         let words = [
             rng.gen_range(0..2048),

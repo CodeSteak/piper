@@ -8,16 +8,13 @@ members = [
 ]
 
 
-[profile.dev]
-opt-level = 1
-
 [profile.dev.package.scrypt]
 opt-level = 3
 
 
 [profile.release]
 codegen-units = 1
-opt-level = 3
+opt-level = 2
 lto = true
 strip = "debuginfo"
 
