@@ -1,6 +1,8 @@
 use std::{collections::{BTreeMap}, io::{Read, SeekFrom, Seek}};
 use chacha20poly1305::{aead::generic_array::GenericArray, ChaCha20Poly1305, KeyInit, AeadInPlace};
 
+use crate::{VERSION_0, VARIANT_ARGON_CHACHA20_POLY};
+
 use super::{HEADER_SIZE, BLOCK_SIZE, PAYLOAD_SIZE, POLY_TAG_SIZE, MAGIC, EncryptedFileError, Header};
 pub struct EncryptedReader<R> {
     inner : R,
@@ -110,7 +112,7 @@ impl < R: Read > EncryptedReader<R> {
         if header.magic != *MAGIC {
             return Err(EncryptedFileError::InvalidHeader);
         }
-        if header.version != 0 || header.variant != 1 {
+        if header.version != VERSION_0 || header.variant != VARIANT_ARGON_CHACHA20_POLY {
             return Err(EncryptedFileError::UnsupportedVariant);
         }
 

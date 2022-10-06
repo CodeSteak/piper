@@ -3,7 +3,7 @@ use std::io::Write;
 use chacha20poly1305::{ChaCha20Poly1305, aead::{generic_array::GenericArray, AeadMutInPlace}, KeyInit};
 use rand::{SeedableRng, RngCore};
 
-use crate::{BLOCK_SIZE, Header, MAGIC, HEADER_SIZE, PAYLOAD_SIZE};
+use crate::{BLOCK_SIZE, Header, MAGIC, HEADER_SIZE, PAYLOAD_SIZE, VERSION_0, VARIANT_ARGON_CHACHA20_POLY};
 
 pub struct EncryptedWriter<W : Write> {
     inner : W,
@@ -45,8 +45,8 @@ impl<W : Write> EncryptedWriter<W> {
     pub(crate) fn new_from_salt_and_key(inner : W, salt : [u8; 8], key : [u8; 32], blockcounter: u32) -> Self {
         let header = Header {
             magic : *MAGIC,
-            version: 0,
-            variant: 1,
+            version: VERSION_0,
+            variant: VARIANT_ARGON_CHACHA20_POLY,
             blockcounter,
             salt,
         };

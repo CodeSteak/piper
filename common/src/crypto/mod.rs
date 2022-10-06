@@ -25,6 +25,8 @@ pub(crate) const ARGON2_PARAMS : argon2::Config = argon2::Config {
 };
 
 pub(crate) const MAGIC : &[u8;3] = b"TOC";  // 3 byte MAGIC + 4 bit version version/ 4bit variant
+pub(crate) const VERSION_0 : u8 = 0;
+pub(crate) const VARIANT_ARGON_CHACHA20_POLY : u8 = 1;
 
 
 #[derive(Debug, Clone, Copy)]
