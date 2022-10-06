@@ -6,7 +6,7 @@ pub use reader::EncryptedReader;
 mod writer;
 pub use writer::EncryptedWriter;
 
-pub(crate) const HEADER_SIZE: usize = 4 /*magic*/ + 4 /*blockcounter*/ + 8 /*salt*/; 
+pub(crate) const HEADER_SIZE: usize = 1 /*magic*/ + 1 /*version */ + 4 /*blockcounter*/ + 10 /*salt*/; 
 pub(crate) const POLY_TAG_SIZE: usize = 16;
 
 pub(crate) const PAYLOAD_SIZE : usize = 512;
@@ -24,28 +24,36 @@ pub(crate) const ARGON2_PARAMS : argon2::Config = argon2::Config {
     hash_length: 32,
 };
 
-pub(crate) const MAGIC : &[u8;3] = b"TOC";  // 3 byte MAGIC + 4 bit version version/ 4bit variant
-pub(crate) const VERSION_0 : u8 = 0;
-pub(crate) const VARIANT_ARGON_CHACHA20_POLY : u8 = 1;
+const VERSION_0 : u8 = 0;
+const VARIANT_ARGON_CHACHA20_POLY : u8 = 1;
+
+pub(crate) const MAGIC  : &[u8;256] = br#"#toc#stream_____
+key=argon2iv13(t=3,m=16,p=1,salt=SALT:10|'#toc')
+nonce=SALT[0:8]|COUNTER
+magic=if COUNTER<16 '#toc#stream_____'[COUNTER] else ?
+v=1
+enc,tag=chacha20-poly1305-tag(nonce,key)
+magic:1|v:1|COUNTER:4be|SALT:10|enc:512|tag:16
+___________________"#;
 
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Header {
-    pub(crate) magic : [u8;3],
+    pub(crate) magic : u8,
     pub(crate) version : u8,
     pub(crate) variant : u8,
     pub(crate) blockcounter : u32,
-    pub(crate) salt : [u8;8],
+    pub(crate) salt : [u8;10],
 }
 
 impl From<[u8; HEADER_SIZE]> for Header {
     fn from(data: [u8; HEADER_SIZE]) -> Self {
         Header { 
-            magic: data[0..3].try_into().unwrap(),
-            version: (data[3] >> 4) & 0x0F,
-            variant: (data[3] >> 0) & 0x0F,
-            blockcounter: u32::from_be_bytes(data[4..8].try_into().unwrap()), 
-            salt: data[8..].try_into().unwrap(),
+            magic:   data[0],
+            version: (data[1] >> 4) & 0x0F,
+            variant: (data[1] >> 0) & 0x0F,
+            blockcounter: u32::from_be_bytes(data[2..6].try_into().unwrap()), 
+            salt: data[6..].try_into().unwrap(),
         }
     }
 }
@@ -53,10 +61,10 @@ impl From<[u8; HEADER_SIZE]> for Header {
 impl From<Header> for [u8; HEADER_SIZE] {
     fn from(header: Header) -> Self {
         let mut data = [0u8; HEADER_SIZE];
-        data[0..3].copy_from_slice(&header.magic);
-        data[3] = ((header.version & 0x0F) << 4) | (header.variant & 0x0F);
-        data[4..8].copy_from_slice(&header.blockcounter.to_be_bytes());
-        data[8..].copy_from_slice(&header.salt);
+        data[0] = MAGIC[header.blockcounter as usize % MAGIC.len()];
+        data[1] = (header.version << 4) | (header.variant << 0);
+        data[2..6].copy_from_slice(&header.blockcounter.to_be_bytes());
+        data[6..].copy_from_slice(&header.salt);
         data
     }
 }
@@ -64,6 +72,10 @@ impl From<Header> for [u8; HEADER_SIZE] {
 impl Header {
     pub(crate) fn to_bytes(self) -> [u8; HEADER_SIZE] {
         self.into()
+    }
+
+    fn magic_ok(&self) -> bool {
+        self.blockcounter >= 16 || self.magic == MAGIC[self.blockcounter as usize % MAGIC.len()]
     }
 }
 
@@ -119,12 +131,9 @@ impl From<chacha20poly1305::aead::Error> for EncryptedFileError {
 }
 
 pub(crate) fn generate_key(passphrase : &[u8], header : &Header) -> [u8; 32] {
-    let mut salt = [0u8; 16];
-    salt[0..8].copy_from_slice(&header.salt);
-    salt[8..11].copy_from_slice(&header.magic);
-    salt[11] = header.version;
-    salt[12..15].copy_from_slice(&header.magic);
-    salt[15] = header.variant;
+    let mut salt = [0u8; 14];
+    salt[0..10].copy_from_slice(&header.salt);
+    salt[10..].copy_from_slice(b"#toc");
 
     let key = argon2::hash_raw(&passphrase, &salt, &ARGON2_PARAMS).unwrap();
     let key : [u8;32] = key.try_into().unwrap();
@@ -133,7 +142,7 @@ pub(crate) fn generate_key(passphrase : &[u8], header : &Header) -> [u8; 32] {
 
 pub(crate) fn payload_nonce(h : &Header) -> [u8;12] {
     let mut nonce = [0;12];
-    nonce[0..8].copy_from_slice(&h.salt);
+    nonce[0..8].copy_from_slice(&h.salt[0..8]);
     nonce[8..12].copy_from_slice(&h.blockcounter.to_be_bytes());
     nonce
 }
@@ -275,10 +284,7 @@ mod tests {
 
     #[bench]
     fn bench_encrypt(b : &mut test::Bencher) {
-
-        let mut data = vec![0u8; 10*1024*1024];
-        let mut rng = rand::thread_rng();
-        rng.fill_bytes(&mut data);
+        let data = generate_data(10*1024*1024);
 
         let mut encrypted = Vec::new();
         let writer = EncryptedWriter::new(vec![], b"test");
@@ -293,8 +299,22 @@ mod tests {
             writer.write_all(&data).unwrap();
             drop(writer);
         });
+    }
 
+    #[bench]
+    fn bench_decrypt(b : &mut test::Bencher) {
+        let data = generate_data(10*1024*1024);
+        let encypted = encrypt_all(&data, "test");
 
+        let mut reader = EncryptedReader::new(&encypted[..], b"test");
+        reader.read(&mut []).unwrap();
+
+        let mut out = Vec::new();
+        b.iter(|| {
+            out.clear();
+            let mut reader = reader.clone_with(&encypted[..]);
+            reader.read_to_end(&mut out).unwrap();
+        });
     }
 
 }

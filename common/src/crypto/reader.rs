@@ -1,14 +1,13 @@
 use std::{collections::{BTreeMap}, io::{Read, SeekFrom, Seek}};
 use chacha20poly1305::{aead::generic_array::GenericArray, ChaCha20Poly1305, KeyInit, AeadInPlace};
 
-use crate::{VERSION_0, VARIANT_ARGON_CHACHA20_POLY};
+use super::{VERSION_0, VARIANT_ARGON_CHACHA20_POLY, HEADER_SIZE, BLOCK_SIZE, PAYLOAD_SIZE, POLY_TAG_SIZE, EncryptedFileError, Header};
 
-use super::{HEADER_SIZE, BLOCK_SIZE, PAYLOAD_SIZE, POLY_TAG_SIZE, MAGIC, EncryptedFileError, Header};
 pub struct EncryptedReader<R> {
     inner : R,
     passphrase: Vec<u8>,
-    stream_state : BTreeMap<[u8;8], StreamState>,
-    last_stream : Option<[u8;8]>,
+    stream_state : BTreeMap<[u8;10], StreamState>,
+    last_stream : Option<[u8;10]>,
     
     current_chunk_position : usize,
     current_chunk: Box<[u8; BLOCK_SIZE]>,
@@ -30,6 +29,20 @@ impl<R> EncryptedReader<R> {
             inner,
             passphrase: passphrase.to_vec(),
             stream_state : BTreeMap::new(),
+            last_stream: None,
+            current_chunk_position : PAYLOAD_SIZE,
+            current_chunk: Box::new([0; BLOCK_SIZE]),
+            global_position : 0,
+        }
+    }
+
+    #[allow(dead_code)] // used in tests
+    /// Creates a new EncryptedReader, but inherits cached keys from self. 
+    pub(crate) fn clone_with<O>(&self, inner : O ) -> EncryptedReader<O> {
+        EncryptedReader {
+            inner,
+            passphrase: self.passphrase.clone(),
+            stream_state : self.stream_state.clone(),
             last_stream: None,
             current_chunk_position : PAYLOAD_SIZE,
             current_chunk: Box::new([0; BLOCK_SIZE]),
@@ -109,7 +122,7 @@ impl < R: Read > EncryptedReader<R> {
         }
 
         let header = Header::from(*self.header_bytes());
-        if header.magic != *MAGIC {
+        if !header.magic_ok() {
             return Err(EncryptedFileError::InvalidHeader);
         }
         if header.version != VERSION_0 || header.variant != VARIANT_ARGON_CHACHA20_POLY {

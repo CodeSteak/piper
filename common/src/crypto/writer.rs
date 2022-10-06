@@ -3,7 +3,7 @@ use std::io::Write;
 use chacha20poly1305::{ChaCha20Poly1305, aead::{generic_array::GenericArray, AeadMutInPlace}, KeyInit};
 use rand::{SeedableRng, RngCore};
 
-use crate::{BLOCK_SIZE, Header, MAGIC, HEADER_SIZE, PAYLOAD_SIZE, VERSION_0, VARIANT_ARGON_CHACHA20_POLY};
+use super::{BLOCK_SIZE, Header, HEADER_SIZE, PAYLOAD_SIZE, VERSION_0, VARIANT_ARGON_CHACHA20_POLY};
 
 pub struct EncryptedWriter<W : Write> {
     inner : W,
@@ -17,12 +17,12 @@ pub struct EncryptedWriter<W : Write> {
 
 impl<W : Write> EncryptedWriter<W> {
     pub fn new(inner : W, passphrase : &[u8]) -> Self {
-        let mut salt = [0;8];
+        let mut salt = [0;10];
         let mut rng = rand::rngs::StdRng::from_entropy();
         rng.fill_bytes(&mut salt);
 
         let header = Header {
-            magic : *MAGIC,
+            magic : 0,
             version: 0,
             variant: 1,
             blockcounter: 0,
@@ -42,9 +42,9 @@ impl<W : Write> EncryptedWriter<W> {
     }
 
     #[allow(dead_code)] // used in tests
-    pub(crate) fn new_from_salt_and_key(inner : W, salt : [u8; 8], key : [u8; 32], blockcounter: u32) -> Self {
+    pub(crate) fn new_from_salt_and_key(inner : W, salt : [u8; 10], key : [u8; 32], blockcounter: u32) -> Self {
         let header = Header {
-            magic : *MAGIC,
+            magic : 0,
             version: VERSION_0,
             variant: VARIANT_ARGON_CHACHA20_POLY,
             blockcounter,
@@ -77,7 +77,10 @@ impl<W : Write> EncryptedWriter<W> {
 
         self.inner.write_all(&self.current_chunk[..])?;
 
-        self.current_header.blockcounter += 1;
+        self.current_header.blockcounter = self.current_header
+            .blockcounter.checked_add(1)
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "Reached maximum bytes in stream"))?;
+
         Ok(())
     }
 }
