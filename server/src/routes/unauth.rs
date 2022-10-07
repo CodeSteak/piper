@@ -1,13 +1,14 @@
 use crate::{
     meta::{MetaData, MetaStore},
+    responses::ErrorResponse,
     templates::TarFileInfo,
-    util::{handle_range},
-    AppState, responses::ErrorResponse,
+    util::handle_range,
+    AppState,
 };
 use age::stream::StreamReader;
 use askama::Template;
-use rouille::Response;
 use common::{TarHash, TarPassword};
+use rouille::Response;
 use std::{
     fs::File,
     io::Write,
@@ -59,7 +60,10 @@ pub fn get_download_raw(
 
     let path = format!("data/{}.tar.age", &id);
     if m.finished {
-        let m_time = std::fs::metadata(&path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+        let m_time = std::fs::metadata(&path)?
+            .modified()?
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
         handle_range(request, None, Some(m_time), File::open(&path)?)
     } else {
         let file = File::open(&path)?;
@@ -85,7 +89,10 @@ pub fn get_download(
 ) -> anyhow::Result<Response> {
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
-    let m = state.meta.get(&hash)?.ok_or_else(ErrorResponse::not_found)?;
+    let m = state
+        .meta
+        .get(&hash)?
+        .ok_or_else(ErrorResponse::not_found)?;
 
     let offset = request
         .get_param("offset")
@@ -97,10 +104,13 @@ pub fn get_download(
         .map(|v| v.parse::<u64>())
         .transpose()?;
 
-    let name = request.get_param("name").map(|v| v.to_string());
+    let name = request.get_param("name");
 
     let path = PathBuf::from(&format!("data/{}.tar.age", hash));
-    let m_time = std::fs::metadata(&path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+    let m_time = std::fs::metadata(&path)?
+        .modified()?
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
     let file = std::fs::File::open(path)?;
     if !m.finished {
         if offset.is_some() || length.is_some() {
@@ -140,7 +150,7 @@ pub fn get_download(
         de_reader.seek(std::io::SeekFrom::Start(offset))?;
     }
 
-    let res = handle_range(&request, length, Some(m_time), de_reader)?;
+    let res = handle_range(request, length, Some(m_time), de_reader)?;
     let res = match name {
         Some(name) => res.with_content_disposition_attachment(&name),
         None => res,
@@ -153,9 +163,12 @@ fn get_decrypted_reader(
     state: &AppState,
     id: &TarPassword,
 ) -> anyhow::Result<Result<(StreamReader<File>, MetaData), Response>> {
-    let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
+    let hash = TarHash::from_tarid(id, &state.config.general.hostname);
 
-    let m = state.meta.get(&hash)?.ok_or_else(ErrorResponse::not_found)?;
+    let m = state
+        .meta
+        .get(&hash)?
+        .ok_or_else(ErrorResponse::not_found)?;
 
     if !m.finished {
         return Ok(Err(
@@ -346,7 +359,7 @@ pub fn get_ui_index(
         let mtime = entry.header().mtime().unwrap_or(0);
 
         index.files.push(TarFileInfo {
-            is_dir: path.ends_with("/"),
+            is_dir: path.ends_with('/'),
             path: path.clone(),
             name: name.clone(),
             offset,

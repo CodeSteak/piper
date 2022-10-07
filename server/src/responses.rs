@@ -43,8 +43,8 @@ impl Display for ErrorResponse {
     }
 }
 
-impl Into<Response> for ErrorResponse {
-    fn into(self) -> Response {
-        Response::text(self.error.to_string()).with_status_code(self.status)
+impl From<ErrorResponse> for Response {
+    fn from(val: ErrorResponse) -> Self {
+        Response::text(val.error.to_string()).with_status_code(val.status)
     }
 }

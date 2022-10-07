@@ -1,4 +1,7 @@
-use std::{io::{Read, Seek}, borrow::Cow};
+use std::{
+    borrow::Cow,
+    io::{Read, Seek},
+};
 
 pub fn now_unix() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -16,7 +19,7 @@ pub fn now_unix() -> u64 {
 pub fn handle_range<T: Read + Seek + Send + 'static>(
     request: &rouille::Request,
     max_len: Option<u64>,
-    mod_time : Option<u64>,
+    mod_time: Option<u64>,
     mut file: T,
 ) -> anyhow::Result<rouille::Response> {
     struct MaxRead<T> {
@@ -44,7 +47,11 @@ pub fn handle_range<T: Read + Seek + Send + 'static>(
             let offset = parts.next()?.parse::<u64>().ok()?;
             // TODO: allow open-ended ranges
             let end = parts.next()?;
-            let end = if end == "" {u64::MAX} else {end.parse::<u64>().ok()?};
+            let end = if end.is_empty() {
+                u64::MAX
+            } else {
+                end.parse::<u64>().ok()?
+            };
 
             let length = end.saturating_sub(offset) + 1;
             Some((offset, length))
@@ -54,18 +61,18 @@ pub fn handle_range<T: Read + Seek + Send + 'static>(
     let if_range_fullfilled = request
         .header("If-Range")
         .map(|v| match mod_time {
-            Some(mod_time) => v.trim() == &format!("\"{}\"", mod_time),
+            Some(mod_time) => format!("\"{}\"", mod_time) == v.trim(),
             None => false,
         })
         .unwrap_or(true);
     // if etag changed, return 200 and full file.
-    let range = if if_range_fullfilled {range} else {None};
+    let range = if if_range_fullfilled { range } else { None };
 
-    let if_match_value = request.header("If-Match").or_else(|| request.header("If-Match"));
+    let if_match_value = request
+        .header("If-Match")
+        .or_else(|| request.header("If-Match"));
     let if_match_matches = match (if_match_value, mod_time) {
-        (Some(v), Some(time)) => {
-            v.contains(&format!("\"{}\"", time))
-        },
+        (Some(v), Some(time)) => v.contains(&format!("\"{}\"", time)),
         _ => false,
     };
 
@@ -82,9 +89,8 @@ pub fn handle_range<T: Read + Seek + Send + 'static>(
         (file.seek(std::io::SeekFrom::End(0))? - current_pos).min(max_len.unwrap_or(std::u64::MAX));
     let _ = file.seek(std::io::SeekFrom::Start(current_pos))?;
 
-    let mut headers : Vec<(Cow<'static, str>, Cow<'static, str>)> = vec![
-        ("Content-Type".into(), "application/octet-stream".into()),
-    ];
+    let mut headers: Vec<(Cow<'static, str>, Cow<'static, str>)> =
+        vec![("Content-Type".into(), "application/octet-stream".into())];
 
     if let Some(mod_time) = mod_time {
         headers.push(("ETag".into(), format!("\"{}\"", mod_time).into()));
@@ -99,7 +105,10 @@ pub fn handle_range<T: Read + Seek + Send + 'static>(
                 inner: file,
             };
 
-            headers.push(("Content-Range".into(), format!("bytes {}-{}/{}", offset, offset + length - 1, rest_len).into()));
+            headers.push((
+                "Content-Range".into(),
+                format!("bytes {}-{}/{}", offset, offset + length - 1, rest_len).into(),
+            ));
             Ok(rouille::Response {
                 status_code: 206,
                 headers,

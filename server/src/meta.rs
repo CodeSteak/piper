@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use common::{TarHash};
+use common::TarHash;
 
 #[derive(Clone)]
 pub struct MetaStore {
@@ -29,9 +29,7 @@ impl MetaStore {
             std::fs::create_dir(path.clone())?;
         }
 
-        Ok(Self {
-            path: path
-        })
+        Ok(Self { path })
     }
 
     pub fn get(&self, id: &TarHash) -> anyhow::Result<Option<MetaData>> {
@@ -81,7 +79,7 @@ impl MetaStore {
             }
             match TarHash::from_str(
                 file_name
-                    .split_once(".")
+                    .split_once('.')
                     .expect("file has meta.json but no '.'.")
                     .0,
             )

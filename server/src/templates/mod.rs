@@ -6,8 +6,8 @@ pub struct TarIndex {
     pub valid_until: chrono::NaiveDateTime,
     pub craeted_at: chrono::NaiveDateTime,
     pub files: Vec<TarFileInfo>,
-    pub id : String,
-    pub hostname : String,
+    pub id: String,
+    pub hostname: String,
 }
 
 pub struct TarFileInfo {

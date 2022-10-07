@@ -1,5 +1,5 @@
-use rouille::Response;
 use common::{TarHash, TarPassword};
+use rouille::Response;
 
 use crate::responses::ErrorResponse;
 
@@ -20,9 +20,9 @@ pub struct AppState {
 }
 
 fn main() {
-    let config_file = std::env::var("CONFIG_FILE").unwrap_or("config.toml".to_string());
+    let config_file = std::env::var("CONFIG_FILE").unwrap_or_else(|_| "config.toml".to_string());
     println!("Loading config from {}", config_file);
-    
+
     let config = config::Config::load(&config_file).unwrap();
 
     let state = AppState {

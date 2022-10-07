@@ -1,5 +1,5 @@
-use std::io::Read;
 use common::{TarHash, TarPassword};
+use std::io::Read;
 
 use rouille::{
     websocket::{self, Websocket},
@@ -7,8 +7,7 @@ use rouille::{
 };
 
 use crate::{
-    config::UserConfig, meta::MetaData, responses::ErrorResponse,
-    util::now_unix, AppState,
+    config::UserConfig, meta::MetaData, responses::ErrorResponse, util::now_unix, AppState,
 };
 
 pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result<Response> {
@@ -41,7 +40,7 @@ pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result
 
         impl<'a> Read for WSReader<'a> {
             fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-                if self.buffer.len() == 0 {
+                if self.buffer.is_empty() {
                     match self.inner.next() {
                         Some(rouille::websocket::Message::Binary(b)) => {
                             self.buffer = b;
@@ -58,7 +57,8 @@ pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result
                 let n = std::cmp::min(self.buffer.len(), buf.len());
                 buf[..n].copy_from_slice(&self.buffer[..n]);
                 self.buffer.drain(..n);
-                return Ok(n);
+
+                Ok(n)
             }
         }
 
@@ -95,7 +95,7 @@ pub fn post_upload(state: &AppState, request: &rouille::Request) -> anyhow::Resu
 
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
 
-    let mut body = request.data().ok_or(anyhow::anyhow!("No body"))?;
+    let mut body = request.data().ok_or_else(|| anyhow::anyhow!("No body"))?;
     with_update_metadata(&hash, state, user, || {
         let mut file = std::fs::File::create(state.meta.file_path(&hash))?;
         let mut encryptor =
@@ -110,8 +110,7 @@ pub fn post_upload(state: &AppState, request: &rouille::Request) -> anyhow::Resu
 
     Ok(rouille::Response::text(format!(
         "===\n\nhttps://{}/{}/\n\n===\n\ncurl 'https://{}/{}/' | tar -xkvf -\n\n===\n",
-        &state.config.general.hostname, id_str,
-        &state.config.general.hostname, id_str,
+        &state.config.general.hostname, id_str, &state.config.general.hostname, id_str,
     )))
 }
 
@@ -126,7 +125,7 @@ pub fn post_upload_raw(
         return Ok(Response::text("Already exists").with_status_code(403));
     }
 
-    let mut body = request.data().ok_or(anyhow::anyhow!("No body"))?;
+    let mut body = request.data().ok_or_else(|| anyhow::anyhow!("No body"))?;
     with_update_metadata(&id, state, user, || {
         let mut file = std::fs::File::create(state.meta.file_path(&id))?;
         std::io::copy(&mut body, &mut file)?;
@@ -170,16 +169,16 @@ fn with_update_metadata<T, F: FnOnce() -> anyhow::Result<T>>(
         allow_write: false,
         allow_rewrite: false,
     };
-    state.meta.set(&hash, &meta)?;
+    state.meta.set(hash, &meta)?;
 
     let result = f();
 
     meta.finished = true;
-    state.meta.set(&hash, &meta)?;
+    state.meta.set(hash, &meta)?;
 
     if result.is_err() {
         let _ = std::fs::remove_file(state.meta.file_path(hash));
-        let _ = state.meta.delete(&hash);
+        let _ = state.meta.delete(hash);
     }
 
     result
@@ -211,7 +210,11 @@ pub fn delete_raw(
     Ok(Response::text("Deleted"))
 }
 
-pub fn delete(state: &AppState, request: &rouille::Request, id: TarPassword) -> anyhow::Result<Response> {
+pub fn delete(
+    state: &AppState,
+    request: &rouille::Request,
+    id: TarPassword,
+) -> anyhow::Result<Response> {
     let hash = TarHash::from_tarid(&id, &state.config.general.hostname);
     delete_raw(state, request, hash)
 }
