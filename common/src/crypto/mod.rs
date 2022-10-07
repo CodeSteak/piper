@@ -27,14 +27,18 @@ pub(crate) const ARGON2_PARAMS : argon2::Config = argon2::Config {
 const VERSION_0 : u8 = 0;
 const VARIANT_ARGON_CHACHA20_POLY : u8 = 1;
 
+const COUNTER_HINT : u32 = u32::from_be_bytes([b'5',b'4',b'4',b'b']);
+
 pub(crate) const MAGIC  : &[u8;256] = br#"#toc#stream_____
-key=argon2iv13(t=3,m=16,p=1,salt=SALT:10|'#toc')
+key=argon2iv13(t=3,m=65536,p=1,salt=SALT:10|'#toc',PLAIN)
 nonce=SALT[0:8]|COUNTER
 magic=if COUNTER<16 '#toc#stream_____'[COUNTER] else ?
 v=1
-enc,tag=chacha20-poly1305-tag(nonce,key)
-magic:1|v:1|COUNTER:4be|SALT:10|enc:512|tag:16
-___________________"#;
+enc,tag=chacha20-poly1305(nonce,key)
+c=COUNTER:4be^'544b'
+magic:1|v:1|c:4|SALT:10|enc:512|tag:16
+
+"#;
 
 
 #[derive(Debug, Clone, Copy)]
@@ -52,7 +56,7 @@ impl From<[u8; HEADER_SIZE]> for Header {
             magic:   data[0],
             version: (data[1] >> 4) & 0x0F,
             variant: (data[1] >> 0) & 0x0F,
-            blockcounter: u32::from_be_bytes(data[2..6].try_into().unwrap()), 
+            blockcounter: u32::from_be_bytes(data[2..6].try_into().unwrap()) ^ COUNTER_HINT, 
             salt: data[6..].try_into().unwrap(),
         }
     }
@@ -63,7 +67,7 @@ impl From<Header> for [u8; HEADER_SIZE] {
         let mut data = [0u8; HEADER_SIZE];
         data[0] = MAGIC[header.blockcounter as usize % MAGIC.len()];
         data[1] = (header.version << 4) | (header.variant << 0);
-        data[2..6].copy_from_slice(&header.blockcounter.to_be_bytes());
+        data[2..6].copy_from_slice(&(header.blockcounter^COUNTER_HINT).to_be_bytes());
         data[6..].copy_from_slice(&header.salt);
         data
     }
@@ -135,8 +139,13 @@ pub(crate) fn generate_key(passphrase : &[u8], header : &Header) -> [u8; 32] {
     salt[0..10].copy_from_slice(&header.salt);
     salt[10..].copy_from_slice(b"#toc");
 
+
     let key = argon2::hash_raw(&passphrase, &salt, &ARGON2_PARAMS).unwrap();
     let key : [u8;32] = key.try_into().unwrap();
+
+    eprintln!("key={:?}", &key);
+    eprintln!("salt={:?}\n", &salt);
+
     key
 }
 

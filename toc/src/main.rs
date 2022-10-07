@@ -49,6 +49,18 @@ enum Commands {
         files : Vec<PathBuf>,
     },
     Login,
+    Encrypt {
+        #[arg(long)]
+        input : Option<PathBuf>,
+        #[arg(long)]
+        output : Option<PathBuf>,
+    },
+    Decrypt {
+        #[arg(long)]
+        input : Option<PathBuf>,
+        #[arg(long)]
+        output : Option<PathBuf>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +143,26 @@ fn main() -> anyhow::Result<()> {
             }.save(&cli.config)?;
             println!("Saved config to {}", file.display());
         },
+        Some(Commands::Decrypt { input, output }) => {
+            let code = cli.code.ok_or_else(|| anyhow::anyhow!("No code provided."))?;
+            let mut input = get_read_stream(&input.unwrap_or_else(|| PathBuf::from("-")))?;
+            let mut output = get_write_stream(&output.unwrap_or_else(|| PathBuf::from("-")))?;
+
+            let mut reader = common::EncryptedReader::new(&mut input, &code.code.to_string().as_bytes());
+            std::io::copy(&mut reader, &mut output)?;
+        },
+        Some(Commands::Encrypt { input, output }) => {
+            let code = cli.code.map(|c| c.code).unwrap_or_else(|| {
+                let pwd = TarPassword::generate();
+                eprintln!("Generated code: {}", pwd);
+                pwd
+            });
+            let mut input = get_read_stream(&input.unwrap_or_else(|| PathBuf::from("-")))?;
+            let mut output = get_write_stream(&output.unwrap_or_else(|| PathBuf::from("-")))?;
+
+            let mut writer = common::EncryptedWriter::new(&mut output, &code.to_string().as_bytes());
+            std::io::copy(&mut input, &mut writer)?;
+        },
         None if cli.code.is_some() => {
             receive(&cli)?;
         },
@@ -140,6 +172,24 @@ fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+fn get_read_stream(path : &PathBuf) -> anyhow::Result<Box<dyn Read>> {
+    if path.display().to_string() == "-" {
+        Ok(Box::new(std::io::stdin()))
+    } else {
+        Ok(Box::new(std::fs::File::open(path)
+            .context(format!("Failed to open file: {}", path.display()))?))
+    }
+}
+
+fn get_write_stream(path : &PathBuf) -> anyhow::Result<Box<dyn Write>> {
+    if path.display().to_string() == "-" {
+        Ok(Box::new(std::io::stdout()))
+    } else {
+        Ok(Box::new(std::fs::File::create(path)
+            .context(format!("Failed to create file: {}", path.display()))?))
+    }
 }
 
 fn receive(cli : &Cli) -> anyhow::Result<()> {
