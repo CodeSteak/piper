@@ -344,16 +344,28 @@ pub fn get_ui_index(
         let length = entry.size();
 
         let mtime = entry.header().mtime().unwrap_or(0);
-
+        
         index.files.push(TarFileInfo {
             is_dir: path.ends_with('/'),
             path: path.clone(),
             name: name.clone(),
             offset,
             size: length,
+            human_size: human_size(length),
             m_time: chrono::NaiveDateTime::from_timestamp(mtime as i64, 0),
         });
     }
 
     Ok(Response::html(index.render()?))
+}
+
+fn human_size(mut size : u64) -> String {
+    let prefix = ["b", "K", "M", "G", "T", "P", "E", "Z", "Y"];
+    for i in prefix {
+        if size < 4096 {
+            return format!("{size} {i}");
+        }
+        size /= 1024;
+    }
+    format!("{size}x∞")
 }

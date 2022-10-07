@@ -145,7 +145,7 @@ pre {
             {% for file in files %}
             {% if !file.is_dir%}
                <a class="file" href="pipe?offset={{file.offset}}&length={{file.size}}&name={{file.name}}">
-                {{file.path}} <small>{{file.m_time}}</small> <small>{{file.size}}</small>
+                {{file.path}} <small>{{file.m_time}}</small> <small>{{file.human_size}}</small>
                </a>
             {% endif %}
             {% endfor %}

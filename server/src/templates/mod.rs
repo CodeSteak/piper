@@ -15,6 +15,7 @@ pub struct TarFileInfo {
     pub path: String,
     pub name: String,
     pub size: u64,
+    pub human_size: String,
     pub offset: u64,
     pub is_dir: bool,
     pub m_time: chrono::NaiveDateTime,
