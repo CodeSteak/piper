@@ -77,7 +77,7 @@ impl<W: Write> EncryptedWriter<W> {
             self.current_chunk[i] = 0;
         }
         let nonce = super::payload_nonce(&self.current_header);
-        let mut cipher = ChaCha20Poly1305::new(GenericArray::from_slice((&self.key[..]).into()));
+        let mut cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&self.key[..]));
         let poly_tag = cipher
             .encrypt_in_place_detached(
                 GenericArray::from_slice(&nonce[..]),

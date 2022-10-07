@@ -54,7 +54,7 @@ impl From<[u8; HEADER_SIZE]> for Header {
         Header {
             magic: data[0],
             version: (data[1] >> 4) & 0x0F,
-            variant: (data[1] >> 0) & 0x0F,
+            variant: data[1] & 0x0F,
             blockcounter: u32::from_be_bytes(data[2..6].try_into().unwrap()) ^ COUNTER_HINT,
             salt: data[6..].try_into().unwrap(),
         }
@@ -65,7 +65,7 @@ impl From<Header> for [u8; HEADER_SIZE] {
     fn from(header: Header) -> Self {
         let mut data = [0u8; HEADER_SIZE];
         data[0] = MAGIC[header.blockcounter as usize % MAGIC.len()];
-        data[1] = (header.version << 4) | (header.variant << 0);
+        data[1] = (header.version << 4) | header.variant;
         data[2..6].copy_from_slice(&(header.blockcounter ^ COUNTER_HINT).to_be_bytes());
         data[6..].copy_from_slice(&header.salt);
         data
@@ -148,7 +148,7 @@ pub(crate) fn generate_key(passphrase: &[u8], header: &Header) -> [u8; 32] {
     salt[0..10].copy_from_slice(&header.salt);
     salt[10..].copy_from_slice(b"#toc");
 
-    let key = argon2::hash_raw(&passphrase, &salt, &ARGON2_PARAMS).unwrap();
+    let key = argon2::hash_raw(passphrase, &salt, &ARGON2_PARAMS).unwrap();
     let key: [u8; 32] = key.try_into().unwrap();
 
     eprintln!("key={:?}", &key);
@@ -328,7 +328,7 @@ mod tests {
         let encypted = encrypt_all(&data, "test");
 
         let mut reader = EncryptedReader::new(&encypted[..], b"test");
-        reader.read(&mut []).unwrap();
+        let _ = reader.read(&mut []).unwrap();
 
         let mut out = Vec::new();
         b.iter(|| {

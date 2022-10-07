@@ -35,21 +35,17 @@ impl TarPassword {
         Self { prefix, words }
     }
 
-    pub fn to_string(&self) -> String {
-        format!("{}", self)
-    }
-
     pub fn parse(input: &str) -> Option<Self> {
         let mut input = input.split('-');
         let num = input.next()?.parse().ok()?;
 
         let mut words = [0; 4];
-        for i in 0..4 {
-            let word = input.next()?;
-            match BIP39_WORDS.binary_search(&word) {
-                Ok(idx) => words[i] = idx as u16,
-                Err(_) if word.len() <= 10 && word.len() >= 2 => {
-                    let lower = word.to_lowercase();
+        for word in &mut words {
+            let input_word = input.next()?;
+            match BIP39_WORDS.binary_search(&input_word) {
+                Ok(idx) => *word = idx as u16,
+                Err(_) if input_word.len() <= 10 && input_word.len() >= 2 => {
+                    let lower = input_word.to_lowercase();
                     let candidates: Vec<_> = BIP39_WORDS
                         .iter()
                         .enumerate()
@@ -58,7 +54,7 @@ impl TarPassword {
                         .collect();
 
                     if candidates.len() == 1 {
-                        words[i] = candidates[0] as u16;
+                        *word = candidates[0] as u16;
                     } else {
                         return None;
                     }

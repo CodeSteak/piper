@@ -34,14 +34,6 @@ impl TarHash {
             hash: hash.try_into().unwrap(),
         }
     }
-
-    pub fn to_string(&self) -> String {
-        let mut s = String::new();
-        for b in self.hash.iter() {
-            s.push_str(&format!("{:02x}", b));
-        }
-        s
-    }
 }
 
 impl Display for TarHash {
@@ -64,9 +56,9 @@ impl FromStr for TarHash {
         let mut hash = [0u8; 32];
         for (i, c) in s.chars().enumerate() {
             let val = match c {
-                '0'..='9' => c as u8 - '0' as u8,
-                'a'..='f' => c as u8 - 'a' as u8 + 10,
-                'A'..='F' => c as u8 - 'A' as u8 + 10,
+                '0'..='9' => c as u8 - b'0',
+                'a'..='f' => c as u8 - b'a' + 10,
+                'A'..='F' => c as u8 - b'A' + 10,
                 _ => return Err(()),
             };
             hash[i / 2] |= val << (4 * (1 - i % 2));

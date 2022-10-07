@@ -101,21 +101,21 @@ impl<R> EncryptedReader<R> {
             }
 
             return if current_block == state.first_stream_chunk + header.blockcounter as i64 {
-                Ok(state.clone())
+                Ok(*state)
             } else {
                 Err(EncryptedFileError::InvalidBlockCounter)
             };
         }
 
         let key = super::generate_key(&self.passphrase, header);
-        let start_chunk_position = current_block - header.blockcounter as i64;
-        if start_chunk_position < 0 {
+        let first_stream_chunk = current_block - header.blockcounter as i64;
+        if first_stream_chunk < 0 {
             return Err(EncryptedFileError::InvalidBlockCounter);
         }
 
         let state = StreamState {
-            key: key,
-            first_stream_chunk: start_chunk_position,
+            key,
+            first_stream_chunk,
             next_stream_block: None,
         };
         self.stream_state.insert(header.salt, state);
@@ -147,11 +147,11 @@ impl<R: Read> EncryptedReader<R> {
         let key = self.get_state(&header)?;
         let nonce = super::payload_nonce(&header);
 
-        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice((&key.key[..]).into()));
+        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&key.key[..]));
         let tag = GenericArray::from_slice(self.poly_tag_bytes()).to_owned();
 
         cipher.decrypt_in_place_detached(
-            &GenericArray::from_slice(&nonce),
+            GenericArray::from_slice(&nonce),
             &[], // no additional data
             &mut self.payload_bytes_mut()[..],
             &tag,
@@ -163,10 +163,8 @@ impl<R: Read> EncryptedReader<R> {
 
 impl<R: Read> Read for EncryptedReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
-        if self.current_chunk_position == PAYLOAD_SIZE {
-            if !self.read_chunk()? {
-                return Ok(0);
-            }
+        if self.current_chunk_position == PAYLOAD_SIZE && !self.read_chunk()? {
+            return Ok(0);
         }
 
         let to_read = std::cmp::min(buf.len(), PAYLOAD_SIZE - self.current_chunk_position);
