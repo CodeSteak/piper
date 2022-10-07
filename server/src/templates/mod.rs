@@ -8,6 +8,7 @@ pub struct TarIndex {
     pub files: Vec<TarFileInfo>,
     pub id: String,
     pub hostname: String,
+    pub protocol: String,
 }
 
 pub struct TarFileInfo {

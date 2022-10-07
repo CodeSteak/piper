@@ -7,9 +7,8 @@ members = [
 ]
 
 
-[profile.dev.package.scrypt]
-opt-level = 3
-
+[profile.dev.package.rust-argon2]
+opt-level = 2
 
 [profile.release]
 codegen-units = 1

@@ -20,6 +20,8 @@ pub struct GeneralConfig {
     pub hostname: String,
     #[serde(default = "default_listen")]
     pub listen: String,
+    #[serde(default = "default_protocol")]
+    pub protocol: String,
     #[serde(default = "default_data_dir")]
     pub data_dir: String,
     #[serde(default = "default_gc_interval_s")]
@@ -30,6 +32,10 @@ pub struct GeneralConfig {
 pub struct UserConfig {
     pub username: String,
     pub token: String,
+}
+
+fn default_protocol() -> String {
+    "https".to_string()
 }
 
 fn default_servername() -> String {

@@ -29,8 +29,8 @@ pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result
         let mut ws = websocket.recv().unwrap();
 
         let _ = ws.send_text(&format!(
-            "https://{}/{}/",
-            &state.config.general.hostname, id_str
+            "{}://{}/{}/",
+            &state.config.general.protocol, &state.config.general.hostname, id_str
         ));
 
         struct WSReader<'a> {
@@ -99,9 +99,10 @@ pub fn post_upload(state: &AppState, request: &rouille::Request) -> anyhow::Resu
         Ok(())
     })?;
 
+    let proto = &state.config.general.protocol;
+    let hostname = &state.config.general.hostname;
     Ok(rouille::Response::text(format!(
-        "===\n\nhttps://{}/{}/\n\n===\n\ncurl 'https://{}/{}/' | tar -xkvf -\n\n===\n",
-        &state.config.general.hostname, id_str, &state.config.general.hostname, id_str,
+        "===\n\n{proto}://{hostname}/{id_str}/\n\n===\n\ncurl '{proto}://{hostname}/{id_str}/' | tar -xkvf -\n\n===\n"
     )))
 }
 

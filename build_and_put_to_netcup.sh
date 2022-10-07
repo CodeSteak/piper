@@ -1,6 +1,8 @@
 #!/bin/sh
 set -ev
 
+cd server
+
 rm -Rf archpkg
 ruby genarchpkg.rb
 
@@ -9,3 +11,4 @@ cp -v archpkg/tarcloud-*-x86_64.pkg.tar.zst ~/workspace/server/netcup/tasks/tarc
 
 cd ~/workspace/server/netcup/
 /home/robin/.local/bin/pyinfra -v inventory.py all.py
+ssh root@pluto.willmann.dev 'systemctl restart tarcloud'

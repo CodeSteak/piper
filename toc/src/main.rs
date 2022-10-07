@@ -273,6 +273,11 @@ fn receive(cli: &Cli) -> anyhow::Result<()> {
 
         progress.update(512, &display);
 
+        if display == "./" || display == "." {
+            // Current directory does not need to be created
+            continue;
+        }
+
         if file_destination.exists() && !overwrite {
             println!("Skipping because it already exists: {}", display);
             loop {
