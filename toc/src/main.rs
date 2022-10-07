@@ -134,7 +134,7 @@ fn main() -> anyhow::Result<()> {
 
     match &cli.subcmd {
         Some(Commands::Send { files }) => {
-            send(&cli, &files)?;
+            send(&cli, files)?;
         }
         Some(Commands::Login) => {
             let file = Config {
@@ -395,6 +395,15 @@ fn receive(cli: &Cli) -> anyhow::Result<()> {
 
         progress.update(512, &display);
 
+        if content_length == 0 {
+            progress.total += 512;
+            progress.total += file.header().size().unwrap_or(0);
+
+            if cli.verbose > 0 {
+                println!("New Total Size: {}", progress.total);
+            }
+        }
+
         if display == "./" || display == "." {
             // Current directory does not need to be created
             continue;
@@ -412,19 +421,13 @@ fn receive(cli: &Cli) -> anyhow::Result<()> {
             continue;
         }
 
-        if content_length == 0 {
-            progress.total += 512;
-        }
+ 
 
         let perm = file.header().mode().unwrap_or(0o644);
         if file.header().entry_type().is_dir() {
             std::fs::create_dir_all(&file_destination)?;
             std::fs::set_permissions(&file_destination, Permissions::from_mode(perm))?;
         } else if file.header().entry_type().is_file() {
-            if content_length == 0 {
-                progress.total += file.header().size().unwrap_or(0);
-            }
-
             let mut new_file = if overwrite {
                 std::fs::OpenOptions::new()
                     .write(true)
