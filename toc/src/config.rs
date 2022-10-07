@@ -1,17 +1,17 @@
-use std::{path::PathBuf, fmt::Display};
 use serde::{Deserialize, Serialize};
+use std::{fmt::Display, path::PathBuf};
 
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Config {
-    pub host : Option<String>,
-    pub token : Option<String>,
-    pub protocol : Option<Protocol>,
-    pub history_file : Option<PathBuf>,
+    pub host: Option<String>,
+    pub token: Option<String>,
+    pub protocol: Option<Protocol>,
+    pub history_file: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq, Default)]
 pub enum Protocol {
-    #[default] 
+    #[default]
     Https,
     Http,
 }
@@ -41,7 +41,7 @@ pub fn history_path() -> PathBuf {
 }
 
 impl Config {
-    pub fn load(path : &Option<PathBuf>) -> anyhow::Result<Self> {
+    pub fn load(path: &Option<PathBuf>) -> anyhow::Result<Self> {
         let path = path.clone().unwrap_or_else(config_path);
         if !path.exists() {
             return Ok(Self::default());
@@ -52,9 +52,9 @@ impl Config {
         Ok(config)
     }
 
-    pub fn save(&self, path : &Option<PathBuf>) -> anyhow::Result<PathBuf> {
+    pub fn save(&self, path: &Option<PathBuf>) -> anyhow::Result<PathBuf> {
         let path = path.clone().unwrap_or_else(config_path);
-        if let Some(parent) = path.parent(){
+        if let Some(parent) = path.parent() {
             if !parent.exists() {
                 std::fs::create_dir_all(parent)?;
             }
@@ -65,4 +65,3 @@ impl Config {
         Ok(path)
     }
 }
-
