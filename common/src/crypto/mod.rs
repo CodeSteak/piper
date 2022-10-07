@@ -151,9 +151,6 @@ pub(crate) fn generate_key(passphrase: &[u8], header: &Header) -> [u8; 32] {
     let key = argon2::hash_raw(passphrase, &salt, &ARGON2_PARAMS).unwrap();
     let key: [u8; 32] = key.try_into().unwrap();
 
-    eprintln!("key={:?}", &key);
-    eprintln!("salt={:?}\n", &salt);
-
     key
 }
 
@@ -167,7 +164,7 @@ pub(crate) fn payload_nonce(h: &Header) -> [u8; 12] {
 #[cfg(test)]
 mod tests {
     use rand::{Rng, RngCore};
-    use std::io::Cursor;
+    use std::io::{Cursor, SeekFrom};
     use std::io::{Read, Seek, Write};
 
     const TWO_MB: usize = 2 * 1024 * 1024;
@@ -284,22 +281,55 @@ mod tests {
 
         for _ in 0..1024 {
             let length = rng.gen_range(0..4000);
-            let offset = rng.gen_range(0..TWO_MB - length);
 
             let mut decrypted = vec![0u8; length];
             let mut encrypted = vec![0u8; length];
 
-            reader
-                .seek(std::io::SeekFrom::Start(offset as u64))
-                .unwrap();
-            decrypted_reader
-                .seek(std::io::SeekFrom::Start(offset as u64))
-                .unwrap();
+            const TWO_MB_I: i64 = TWO_MB as i64;
+            let seek = match rng.gen_range(0..3) {
+                0 => SeekFrom::Start(rng.gen_range(0..TWO_MB as u64)),
+                1 => SeekFrom::Current(rng.gen_range(-TWO_MB_I..TWO_MB_I)),
+                2 => SeekFrom::End(rng.gen_range(-TWO_MB_I..0)),
+                _ => unreachable!(),
+            };
 
-            reader.read_exact(&mut encrypted).unwrap();
-            decrypted_reader.read_exact(&mut decrypted).unwrap();
+            let last_postion_a = reader.seek(SeekFrom::Current(0)).unwrap();
+            let last_postion_b = decrypted_reader.seek(SeekFrom::Current(0)).unwrap();
 
-            assert_eq!(decrypted, encrypted);
+            assert_eq!(last_postion_a, last_postion_b);
+            dbg!(seek, last_postion_a, length);
+
+            let p1 = reader.seek(seek);
+            let p2 = decrypted_reader.seek(seek);
+
+            dbg!(&p1, &p2);
+
+            assert_eq!(p1.is_ok(), p2.is_ok());
+            if p1.is_ok() {
+                assert_eq!(p1.unwrap(), p2.unwrap());
+            } else {
+                // Invalid state
+                reader.seek(SeekFrom::Start(0)).unwrap();
+                decrypted_reader.seek(SeekFrom::Start(0)).unwrap();
+                continue;
+            }
+
+            let ok1 = reader.read_exact(&mut encrypted).is_ok();
+            let ok2 = decrypted_reader.read_exact(&mut decrypted).is_ok();
+
+            assert_eq!(ok1, ok2);
+
+            if ok1 {
+                assert_eq!(
+                    reader.seek(SeekFrom::Current(0)).unwrap(),
+                    decrypted_reader.seek(SeekFrom::Current(0)).unwrap()
+                );
+                assert_eq!(encrypted, decrypted);
+            } else {
+                // Invalid state
+                reader.seek(SeekFrom::Start(0)).unwrap();
+                decrypted_reader.seek(SeekFrom::Start(0)).unwrap();
+            }
         }
     }
 

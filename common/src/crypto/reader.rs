@@ -191,9 +191,11 @@ impl<R: Read + Seek> Seek for EncryptedReader<R> {
                 if self.read_chunk()? {
                     // if not at EOF
                     self.current_chunk_position = offset as usize;
-                    self.global_position += offset;
                 }
-                Ok(n)
+
+                self.global_position += offset;
+
+                Ok(self.global_position)
             }
             SeekFrom::Current(n) => {
                 let new_pos = self.global_position as i64 + n;
