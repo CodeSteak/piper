@@ -192,46 +192,7 @@ pub fn get_tar_to_zip(
         }
     }
 
-    struct Tar2ZipReader {
-        buffer: Vec<u8>,
-        receiver: std::sync::mpsc::Receiver<Vec<u8>>,
-    }
 
-    struct Tar2ZipWriter {
-        written: u64,
-        sender: std::sync::mpsc::SyncSender<Vec<u8>>,
-    }
-
-    impl Read for Tar2ZipReader {
-        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-            if self.buffer.is_empty() {
-                match self.receiver.recv() {
-                    Ok(v) => {
-                        self.buffer = v;
-                    }
-                    Err(_) => return Ok(0),
-                };
-            }
-            let n = std::cmp::min(buf.len(), self.buffer.len());
-            buf[..n].copy_from_slice(&self.buffer[..n]);
-            self.buffer.drain(..n);
-            Ok(n)
-        }
-    }
-
-    impl Write for Tar2ZipWriter {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            self.sender
-                .send(buf.to_vec())
-                .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "send error"))?;
-            self.written += buf.len() as u64;
-            Ok(buf.len())
-        }
-
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
 
     let (mut reader, _) = match get_decrypted_reader(state, &id) {
         Ok(Ok(reader)) => reader,
@@ -239,14 +200,7 @@ pub fn get_tar_to_zip(
         Err(e) => return Err(e),
     };
 
-    let (sender, receiver) = std::sync::mpsc::sync_channel(1024);
-
-    let sender = Tar2ZipWriter { written: 0, sender };
-
-    let receiver = Tar2ZipReader {
-        buffer: Vec::new(),
-        receiver,
-    };
+    let (sender, receiver) = common::create_pipe();
 
     let fake_writer = FakeWriter { len: 0 };
 
@@ -289,7 +243,7 @@ pub fn get_tar_to_zip(
             )?;
         }
 
-        let written = zip.finish()?.written;
+        let written = zip.finish()?.written();
         if written != total_len {
             eprintln!("ERROR: ZIP SIZE DOES NOT MATCH EXPECTED SIZE: written={written}, expected={total_len}.");
         }
@@ -344,7 +298,7 @@ pub fn get_ui_index(
         let length = entry.size();
 
         let mtime = entry.header().mtime().unwrap_or(0);
-        
+
         index.files.push(TarFileInfo {
             is_dir: path.ends_with('/'),
             path: path.clone(),
@@ -359,7 +313,7 @@ pub fn get_ui_index(
     Ok(Response::html(index.render()?))
 }
 
-fn human_size(mut size : u64) -> String {
+fn human_size(mut size: u64) -> String {
     let prefix = ["b", "K", "M", "G", "T", "P", "E", "Z", "Y"];
     for i in prefix {
         if size < 4096 {

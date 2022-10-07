@@ -1,13 +1,13 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use common::{TarHash, TarPassword};
+use common::{EncryptedWriter, TarHash, TarPassword};
 use config::Config;
 use std::{
     fmt::Display,
     fs::Permissions,
     io::{Read, Write},
     os::unix::prelude::PermissionsExt,
-    path::PathBuf,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
@@ -132,11 +132,9 @@ fn main() -> anyhow::Result<()> {
         cli.history_file = None;
     }
 
-    match cli.subcmd {
+    match &cli.subcmd {
         Some(Commands::Send { files }) => {
-            for f in files {
-                println!("TODO: Sending file: {}", f.display());
-            }
+            send(&cli, &files)?;
         }
         Some(Commands::Login) => {
             let file = Config {
@@ -156,8 +154,9 @@ fn main() -> anyhow::Result<()> {
             let code = cli
                 .code
                 .ok_or_else(|| anyhow::anyhow!("No code provided."))?;
-            let mut input = get_read_stream(&input.unwrap_or_else(|| PathBuf::from("-")))?;
-            let mut output = get_write_stream(&output.unwrap_or_else(|| PathBuf::from("-")))?;
+            let mut input = get_read_stream(&input.clone().unwrap_or_else(|| PathBuf::from("-")))?;
+            let mut output =
+                get_write_stream(&output.clone().unwrap_or_else(|| PathBuf::from("-")))?;
 
             let mut reader =
                 common::EncryptedReader::new(&mut input, code.code.to_string().as_bytes());
@@ -169,8 +168,9 @@ fn main() -> anyhow::Result<()> {
                 eprintln!("Generated code: {}", pwd);
                 pwd
             });
-            let mut input = get_read_stream(&input.unwrap_or_else(|| PathBuf::from("-")))?;
-            let mut output = get_write_stream(&output.unwrap_or_else(|| PathBuf::from("-")))?;
+            let mut input = get_read_stream(&input.clone().unwrap_or_else(|| PathBuf::from("-")))?;
+            let mut output =
+                get_write_stream(&output.clone().unwrap_or_else(|| PathBuf::from("-")))?;
 
             let mut writer = common::EncryptedWriter::new(&mut output, code.to_string().as_bytes());
             std::io::copy(&mut input, &mut writer)?;
@@ -206,6 +206,128 @@ fn get_write_stream(path: &PathBuf) -> anyhow::Result<Box<dyn Write>> {
             path.display()
         ))?))
     }
+}
+
+fn send(cli: &Cli, files: &[PathBuf]) -> anyhow::Result<()> {
+    let mut files_out = vec![];
+    for file in files {
+        collect_files(file, &mut files_out)?;
+    }
+    const TAR_HEADER_SIZE: usize = 512;
+    let total_size = files_out
+        .iter()
+        .map(|(_, s, _)| *s + TAR_HEADER_SIZE)
+        .sum::<usize>();
+
+    let base = if files.len() == 1 {
+        if files[0].is_dir() {
+            files[0].to_path_buf()
+        } else if files[0].is_file() {
+            files[0].parent().unwrap().to_path_buf()
+        } else {
+            PathBuf::from(".")
+        }
+    } else {
+        PathBuf::from(".")
+    };
+
+    let code = cli.code.clone().unwrap_or_else(|| TarUrl {
+        code: TarPassword::generate(),
+        host: None,
+        protocol: None,
+    });
+
+    if cli.verbose > 0 {
+        for (path, size, _) in &files_out {
+            println!("{} ({})", path.display(), size);
+        }
+        println!("Total size: {}", total_size);
+        println!("base: {}", base.display());
+    }
+
+    let host = code
+        .host
+        .as_ref()
+        .or(cli.host.as_ref())
+        .ok_or_else(|| anyhow::anyhow!("No host specified."))?;
+
+    let protocol = code
+        .protocol
+        .or(cli.protocol)
+        .unwrap_or(config::Protocol::Https);
+
+    let token = cli
+        .token
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("No token specified."))?;
+
+    let agent = ureq::agent();
+
+    let code_hash = TarHash::from_tarid(&code.code, host);
+
+    let url = format!("{}://{}/raw/{}/", protocol, host, code_hash);
+
+    if cli.verbose > 0 {
+        println!("Downloading from {}", url);
+    }
+
+    let (writer, reader) = common::create_pipe();
+    let mut writer = EncryptedWriter::new(writer, code.code.to_string().as_bytes());
+
+    std::thread::scope(|s| {
+        let handle_a = s.spawn(|| {
+            let _response = agent
+                .post(&url)
+                .set("Authorization", &format!("Bearer {}", token))
+                .send(reader)
+                .context("Failed to send request.")?;
+            Ok::<(), anyhow::Error>(())
+        });
+
+        println!("\n\n{protocol}://{host}/{}/\n\n", code.code);
+
+        let mut progress = ProgressBar::new(total_size as u64);
+
+        let mut tar = tar::Builder::new(&mut writer);
+        for (path, size, is_dir) in files_out {
+            let mut header = tar::Header::new_gnu();
+
+            let mut p = path.strip_prefix(&base).unwrap().display().to_string();
+            if p.is_empty() {
+                continue;
+            }
+
+            if is_dir {
+                p += "/";
+            }
+
+            if cli.verbose > 0 {
+                println!("Adding {} ({})", p, size);
+            }
+
+            header.set_path(p)?;
+            progress.update(TAR_HEADER_SIZE as _, path.display());
+            if is_dir {
+                header.set_size(0);
+                header.set_cksum();
+                tar.append(&header, std::io::empty())?;
+            } else {
+                let file = std::fs::File::open(&path)?;
+                let mode = file.metadata()?.permissions().mode();
+                header.set_size(size as u64);
+                header.set_mode(mode);
+                header.set_cksum();
+                tar.append(&header, progress.reader(path.display(), file))?;
+            }
+        }
+        tar.finish()?;
+
+        println!("\n\n{protocol}://{host}/{}/\n\n", code.code);
+        drop(tar);
+        drop(writer);
+        handle_a.join().unwrap()?;
+        Ok::<(), anyhow::Error>(())
+    })
 }
 
 fn receive(cli: &Cli) -> anyhow::Result<()> {
@@ -290,11 +412,19 @@ fn receive(cli: &Cli) -> anyhow::Result<()> {
             continue;
         }
 
+        if content_length == 0 {
+            progress.total += 512;
+        }
+
         let perm = file.header().mode().unwrap_or(0o644);
         if file.header().entry_type().is_dir() {
             std::fs::create_dir_all(&file_destination)?;
             std::fs::set_permissions(&file_destination, Permissions::from_mode(perm))?;
         } else if file.header().entry_type().is_file() {
+            if content_length == 0 {
+                progress.total += file.header().size().unwrap_or(0);
+            }
+
             let mut new_file = if overwrite {
                 std::fs::OpenOptions::new()
                     .write(true)
@@ -324,6 +454,24 @@ fn receive(cli: &Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn collect_files(root: &Path, out: &mut Vec<(PathBuf, usize, bool)>) -> anyhow::Result<()> {
+    if root.is_dir() {
+        out.push((root.to_path_buf(), 0, true));
+        for entry in std::fs::read_dir(root)? {
+            let entry = entry?;
+            let path = entry.path();
+            collect_files(&path, out)?;
+        }
+        Ok(())
+    } else if root.is_file() {
+        let len = std::fs::metadata(root)?.len() as usize;
+        out.push((root.to_path_buf(), len, false));
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Invalid path: {}", root.display()))
+    }
+}
+
 const DELETE_LINE: &str = "\x1B[2K\r";
 
 struct ProgressBar {
@@ -333,6 +481,20 @@ struct ProgressBar {
     total: u64,
 }
 
+struct ProgressReader<'a, D, R> {
+    bar: &'a mut ProgressBar,
+    display: D,
+    inner: R,
+}
+
+impl<'a, D: Display, R: Read> Read for ProgressReader<'a, D, R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.bar.update(n as u64, &self.display);
+        Ok(n)
+    }
+}
+
 impl ProgressBar {
     fn new(total: u64) -> Self {
         Self {
@@ -340,6 +502,14 @@ impl ProgressBar {
             current: 0,
             last_progress: 0,
             total,
+        }
+    }
+
+    fn reader<D: Display, R: Read>(&mut self, display: D, inner: R) -> ProgressReader<D, R> {
+        ProgressReader {
+            bar: self,
+            display,
+            inner,
         }
     }
 

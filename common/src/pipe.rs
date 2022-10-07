@@ -1,14 +1,14 @@
 use std::io::Read;
 
 // TODO: Optimize this
-pub fn create_pipe() -> (PipeReader, PipeWriter) {
+pub fn create_pipe() -> (PipeWriter, PipeReader) {
     let (sender, receiver) = std::sync::mpsc::sync_channel(64);
     (
+        PipeWriter { written: 0, sender },
         PipeReader {
             buffer: vec![],
             receiver,
         },
-        PipeWriter { written: 0, sender },
     )
 }
 
@@ -20,6 +20,12 @@ pub struct PipeReader {
 pub struct PipeWriter {
     written: u64,
     sender: std::sync::mpsc::SyncSender<Vec<u8>>,
+}
+
+impl PipeWriter {
+    pub fn written(&self) -> u64 {
+        self.written
+    }
 }
 
 impl Read for PipeReader {
