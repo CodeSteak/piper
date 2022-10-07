@@ -64,11 +64,7 @@ pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result
 
         let _ = with_update_metadata(&hash, &state, &user, || {
             let mut file = std::fs::File::create(state.meta.file_path(&hash))?;
-            let mut encryptor = age::Encryptor::with_user_passphrase(
-                age::secrecy::SecretString::from(id_str.clone()),
-            )
-            .wrap_output(&mut file)
-            .unwrap();
+            let mut encryptor = common::EncryptedWriter::new(&mut file, id_str.as_bytes());
 
             std::io::copy(
                 &mut WSReader {
@@ -77,7 +73,6 @@ pub fn ws_upload(state: &AppState, request: &rouille::Request) -> anyhow::Result
                 },
                 &mut encryptor,
             )?;
-            encryptor.finish()?;
             Ok(())
         });
 
@@ -98,13 +93,9 @@ pub fn post_upload(state: &AppState, request: &rouille::Request) -> anyhow::Resu
     let mut body = request.data().ok_or_else(|| anyhow::anyhow!("No body"))?;
     with_update_metadata(&hash, state, user, || {
         let mut file = std::fs::File::create(state.meta.file_path(&hash))?;
-        let mut encryptor =
-            age::Encryptor::with_user_passphrase(age::secrecy::SecretString::from(id_str.clone()))
-                .wrap_output(&mut file)
-                .unwrap();
+        let mut encryptor = common::EncryptedWriter::new(&mut file, id_str.as_bytes());
 
         std::io::copy(&mut body, &mut encryptor)?;
-        encryptor.finish()?;
         Ok(())
     })?;
 

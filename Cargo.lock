@@ -55,7 +55,7 @@ dependencies = [
  "rand 0.7.3",
  "rand 0.8.5",
  "rust-embed",
- "scrypt 0.9.0",
+ "scrypt",
  "sha2 0.10.6",
  "sha2 0.9.9",
  "subtle",
@@ -202,12 +202,6 @@ name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
-
-[[package]]
-name = "base64ct"
-version = "1.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea2b2456fd614d856680dcd9fcc660a51a820fa09daef2e49772b56a193c8474"
 
 [[package]]
 name = "bech32"
@@ -1015,19 +1009,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miniage"
-version = "0.1.0"
-dependencies = [
- "age-core",
- "base64",
- "chacha20poly1305 0.10.1",
- "hmac",
- "nom 7.1.1",
- "scrypt 0.10.0",
- "sha2 0.10.6",
-]
-
-[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1163,30 +1144,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "password-hash"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7676374caaee8a325c9e7a2ae557f216c5563a171d6997b0ef8a65af35147700"
-dependencies = [
- "base64ct",
- "rand_core 0.6.4",
- "subtle",
-]
-
-[[package]]
 name = "pbkdf2"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "271779f35b581956db91a3e55737327a03aa051e90b1c47aeb189508533adfd7"
-dependencies = [
- "digest 0.10.5",
-]
-
-[[package]]
-name = "pbkdf2"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83a0692ec44e4cf1ef28ca317f14f8f07da2d95ec3fa01f86e4467b725e60917"
 dependencies = [
  "digest 0.10.5",
 ]
@@ -1546,20 +1507,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba0aaf3911fff0d942c10a49779de7754699810fc7dbe3df515613b2ecc8195a"
 dependencies = [
  "hmac",
- "pbkdf2 0.10.1",
- "salsa20",
- "sha2 0.10.6",
-]
-
-[[package]]
-name = "scrypt"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f9e24d2b632954ded8ab2ef9fea0a0c769ea56ea98bddbafbad22caeeadf45d"
-dependencies = [
- "hmac",
- "password-hash",
- "pbkdf2 0.11.0",
+ "pbkdf2",
  "salsa20",
  "sha2 0.10.6",
 ]
@@ -1744,7 +1692,6 @@ dependencies = [
 name = "tarcloud"
 version = "0.1.1"
 dependencies = [
- "age",
  "anyhow",
  "askama",
  "chrono",

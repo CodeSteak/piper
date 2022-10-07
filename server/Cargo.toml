@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 rouille = "3.5.0"
-age = "0.8"
 tar = "0.4"
 anyhow = "1.0"
 common = { path = "../common" }

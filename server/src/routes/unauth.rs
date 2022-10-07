@@ -5,9 +5,8 @@ use crate::{
     util::handle_range,
     AppState,
 };
-use age::stream::StreamReader;
 use askama::Template;
-use common::{TarHash, TarPassword};
+use common::{EncryptedReader, TarHash, TarPassword};
 use rouille::Response;
 use std::{
     fs::File,
@@ -123,12 +122,8 @@ pub fn get_download(
             meta: state.meta.clone(),
             timeout: DEFAULT_DOWNLOAD_TIMEOUT,
         };
-        let decryptor = match age::Decryptor::new(reader)? {
-            age::Decryptor::Passphrase(decryptor) => decryptor,
-            _ => return Ok(Response::empty_404()),
-        };
-        let de_reader =
-            decryptor.decrypt(&age::secrecy::SecretString::from(id.to_string()), None)?;
+
+        let de_reader = common::EncryptedReader::new(reader, id.to_string().as_bytes());
         let data = rouille::ResponseBody::from_reader(de_reader);
 
         return Ok(rouille::Response {
@@ -139,13 +134,7 @@ pub fn get_download(
         });
     }
 
-    let decryptor = match age::Decryptor::new(file)? {
-        age::Decryptor::Passphrase(decryptor) => decryptor,
-        _ => return Ok(Response::empty_404()),
-    };
-
-    let mut de_reader =
-        decryptor.decrypt(&age::secrecy::SecretString::from(id.to_string()), None)?;
+    let mut de_reader = common::EncryptedReader::new(file, id.to_string().as_bytes());
     if let Some(offset) = offset {
         de_reader.seek(std::io::SeekFrom::Start(offset))?;
     }
@@ -162,7 +151,7 @@ pub fn get_download(
 fn get_decrypted_reader(
     state: &AppState,
     id: &TarPassword,
-) -> anyhow::Result<Result<(StreamReader<File>, MetaData), Response>> {
+) -> anyhow::Result<Result<(EncryptedReader<File>, MetaData), Response>> {
     let hash = TarHash::from_tarid(id, &state.config.general.hostname);
 
     let m = state
@@ -179,11 +168,8 @@ fn get_decrypted_reader(
     let path = PathBuf::from(&format!("data/{}.tar.age", hash));
     let file = std::fs::File::open(path)?;
 
-    let decryptor = match age::Decryptor::new(file)? {
-        age::Decryptor::Passphrase(decryptor) => decryptor,
-        _ => return Ok(Err(Response::empty_404())),
-    };
-    let de_reader = decryptor.decrypt(&age::secrecy::SecretString::from(id.to_string()), None)?;
+    let de_reader = common::EncryptedReader::new(file, id.to_string().as_bytes());
+
     Ok(Ok((de_reader, m)))
 }
 
