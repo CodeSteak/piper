@@ -1,13 +1,14 @@
 #! /usr/bin/env ruby
 
 rel =  Time.now.to_i / 100
-pkgname = File.read("Cargo.toml").scan(/^name\s*=\s*\"([\w-]+)\"/)[0][0]
-version = File.read("Cargo.toml").scan(/^version\s*=\s*\"([\d\.]+)\"/)[0][0]
+pkgname = File.read("server/Cargo.toml").scan(/^name\s*=\s*\"([\w-]+)\"/)[0][0]
+version = File.read("server/Cargo.toml").scan(/^version\s*=\s*\"([\d\.]+)\"/)[0][0]
 
 puts "#{pkgname} #{version}"
 Dir.mkdir("archpkg") if !Dir.exists?("archpkg")
 
-system("tar", "-czvf", "archpkg/#{pkgname}-#{version}.tar.gz",  "src", "Cargo.toml", "templates", "static", "tiny-http/Cargo.toml", "tiny-http/src")
+system("cargo build --release")
+system("tar", "-czvf", "archpkg/#{pkgname}-#{version}.tar.gz",  "server/templates", "server/static", "target/release/#{pkgname}")
 
 conf = %{
 [general]
@@ -73,7 +74,7 @@ sha256sums=('#{Digest::SHA2.new(256).hexdigest File.read("archpkg/#{pkgname}-#{v
 backup=('etc/#{pkgname}.toml')
 
 build() {
-  cargo build --release
+  true
 }
 
 check() {
@@ -87,7 +88,7 @@ package() {
 
   install -d -m 700 -o 248 -g 248 "$pkgdir"/var/lib/#{pkgname}/
 
-  find static/ -type f -exec install -Dm600 -o 248 -g 248 {} "$pkgdir"/var/lib/#{pkgname}/{} \\;
+  find server/static/ -type f -exec install -Dm600 -o 248 -g 248 {} "$pkgdir"/var/lib/#{pkgname}/{} \\;
 
   install -Dm755 "target/release/#{pkgname}" "$pkgdir/usr/bin/#{pkgname}"
 }

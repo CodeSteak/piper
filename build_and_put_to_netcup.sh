@@ -1,8 +1,6 @@
 #!/bin/sh
 set -ev
 
-cd server
-
 rm -Rf archpkg
 ruby genarchpkg.rb
 
