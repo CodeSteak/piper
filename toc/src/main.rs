@@ -1,4 +1,3 @@
-use age::secrecy::SecretString;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use common::{TarHash, TarPassword};
@@ -254,17 +253,7 @@ fn receive(cli: &Cli) -> anyhow::Result<()> {
         .unwrap_or(0);
 
     let reader = response.into_reader();
-    let d = match age::Decryptor::new(reader).with_context(|| "Encryption Format is invalid")? {
-        age::Decryptor::Passphrase(p) => p,
-        _ => anyhow::bail!("Only passphrase decryption is supported."),
-    };
-
-    let reader = d
-        .decrypt(
-            &SecretString::from_str(&code.code.to_string()).unwrap(),
-            None,
-        )
-        .with_context(|| "Decryption failed.")?;
+    let reader = common::EncryptedReader::new(reader, code.code.to_string().as_bytes());
 
     let mut tar = tar::Archive::new(reader);
     let destination = cli
