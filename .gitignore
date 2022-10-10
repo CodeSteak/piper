@@ -3,3 +3,5 @@
 /miniage
 /tiny-http
 **/archpkg
+build_and_put_to_netcup.sh
+genarchpkg.rb
