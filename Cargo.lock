@@ -1157,6 +1157,7 @@ dependencies = [
 [[package]]
 name = "tiny_http"
 version = "0.8.2"
+source = "git+https://github.com/CodeSteak/tiny-http?branch=feature/v0.8.2-http-1.0-no-chunked-convert#279801210b22e79207c7ca22d960046a357141d0"
 dependencies = [
  "ascii",
  "chrono",

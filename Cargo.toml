@@ -18,4 +18,4 @@ strip = "debuginfo"
 
 [patch.crates-io]
 # patched to not use Chunked Tranfer Encoding for large bodies.
-tiny_http = { path = "./tiny-http" }
+tiny_http = { git = "https://github.com/CodeSteak/tiny-http", branch = "feature/v0.8.2-http-1.0-no-chunked-convert" }
