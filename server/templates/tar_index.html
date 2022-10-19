@@ -5,195 +5,36 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tar Cloud</title>
-    <style>
-* {
-    box-sizing: border-box;
-    font-family: 'Courier New', Courier, monospace;
-    color: #111;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-html, body {
-    width: 100%;
-    height: 100%;
-    margin: 0px;
-} 
-
-main {
-    padding: 2.5rem;
-    background-color: white;
-    display: flex;
-    flex-direction: column;
-}
-
-nav {
-    padding: 2.5rem;
-    background-color: #EEE;
-    display: flex;
-    flex-direction: column;
-}
-
-
-.spacer {
-    height: 2.5rem;
-}
-
-.spacer-grow {
-    flex-grow: 1;
-    min-height: 1rem;
-}
-
-@media (orientation: landscape) {
-    body {
-        display: grid;
-        grid-template-columns: 75vw 1fr;
-    }
-}
-@media (orientation: portrait) {
-    body {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-    }
-}
-
-ul.filelist {
-    margin: auto;
-    list-style-type: none;
-    padding-left: 0px;
-
-    max-width: 100rem;
-    flex-grow: 1;
-}
-
-ul.filelist a {
-    display: grid;
-    grid-template-columns: 4fr 2fr 1fr;
-    padding: 1rem;
-    width: 40rem;
-    max-width: 100rem;
-    border-bottom: 1px solid black;
-}
-
-ul.filelist a:last-child {
-    border-bottom: none;
-}
-
-ul.filelist a:hover {
-    background-color: #EEE;
-}
-
-ul.filelist a small {
-    text-align: right;
-}
-
-a.button {
-    display: inline-block;
-    padding: 0.5rem;
-    margin: 0.5rem;
-    border: 1px solid black;
-    text-decoration: none;
-    color: black;
-    background-color: white;
-}
-
-a.button:hover {
-    background-color: black;
-    color: whitesmoke;
-}
-
-.center {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-
-pre {
-    background-color: whitesmoke;
-    border: 1px solid black;
-    text-transform: none;
-    padding: 0.5rem;
-    margin: 0.5rem;
-}
-
-*[data-copy-on-click="true"]:hover {
-    text-decoration: underline;
-}
-
-.tooltip {
-    position: absolute;
-    z-index: 1000;
-    display: inline-block;
-
-    background-color: white;
-    border: 1px solid black;
-    padding: 0.5rem;
-    margin: 0.5rem;
-}
-
-    </style>
+    <link rel="stylesheet" href="/main.css">
 </head>
 <body>
-    <main>
-        <div class="center"> 
-            <pre data-copy-on-click="true">curl '{{protocol}}://{{hostname}}/{{id}}/' | tar -xkvf -</pre>
-        </div>
-        <div class="spacer"></div>
-        <ul class="filelist">
-            {% for file in files %}
-            {% if !file.is_dir%}
-               <a class="file" href="pipe?offset={{file.offset}}&length={{file.size}}&name={{file.name}}">
-                {{file.path}} <small>{{file.m_time}}</small> <small>{{file.human_size}}</small>
-               </a>
-            {% endif %}
-            {% endfor %}
+    <h1>Tar Cloud</h1>
+    <p>
+        Dieser Link ist gültig bis {{valid_until}} UTC.
+    </p>
+    <pre>&gt;&nbsp;&nbsp;&nbsp;<span data-copy-on-click="true">curl '{{protocol}}://{{hostname}}/{{id}}/' | tar -xkvf -</span></pre>
+    <hr/>
+    <h2>Index</h2>
+    <ul class="filelist">
+        {% for file in files %}
+        {% if !file.is_dir%}
+            <li><a class="file" href="pipe?offset={{file.offset}}&length={{file.size}}&name={{file.name}}">
+            <span class="filepath">{{file.path}}</span> <span class="filetime">{{file.m_time}}</span> <span class="filesize">{{file.human_size}}</span>
+            </a></li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+    <hr/>
+    <a class="button" href="pipe?name=archive.tar">Download als TAR</a>
+    <a class="button" href="zip">Download als ZIP</a>   
+    <hr/>
 
-        </ul>
-    </main>
-    <nav>
-        <h1>Tar Cloud</h1>
-
-        <p>
-            Nicht zuverwechseln mit der RobinCloud! 
-        </p>
-        <p>
-            Proudly Hosted On A Pumpkin Using A 16k Modem.
-        </p>
-
-
-        <div class="spacer-grow"></div>
-
-        <a class="button" href="pipe?name=archive.tar"> Download as TAR </a>
-        <a class="button" href="zip"> Download as ZIP </a>
-
-        <p>
-            Dieser Link ist gültig bis {{valid_until}} UTC.
-        </p>
-    </nav>
-
-    <script>
-        function main() {
-            document.querySelectorAll('[data-copy-on-click="true"]').forEach((el) => {
-                el.addEventListener('click', (evt) => {
-                    navigator.clipboard.writeText(el.innerText);
-
-                    const tooltip = document.createElement('div');
-                    tooltip.classList.add('tooltip');
-                    tooltip.innerText = 'Copied to clipboard!';
-                    tooltip.style.top = `${evt.clientY}px`;
-                    tooltip.style.left = `${evt.clientX}px`;
-                    el.appendChild(tooltip);
-
-                    setTimeout(() => {
-                        tooltip.remove();
-                    }, 2500);
-                });
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', main, false);
-    </script>
+    <small>
+        <a href="/legal.html">Impressum &amp; Datenschutz</a>
+    </small>
+    <small>
+        Proudly Hosted On A Pumpkin Using A 16k Modem.
+    </small>
+    <script src="/main.js"></script>
 </body>
 </html>

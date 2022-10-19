@@ -76,7 +76,15 @@ fn main() {
             (GET) ["/"] => {
                 Ok(ErrorResponse::unimplemented().into())
             },
-            _ => Ok(ErrorResponse::not_found().into())
+            _ => {
+                let res = rouille::match_assets(request, "./static");
+
+                if res.is_success() {
+                    Ok(res)
+                } else {
+                    Ok(ErrorResponse::not_found().into())
+                }
+            }
         );
 
         match res {
@@ -133,6 +141,7 @@ fn run_gc(state: AppState) {
     std::thread::sleep(std::time::Duration::from_secs(
         state.config.general.gc_interval_s / 10,
     ));
+
     loop {
         std::thread::sleep(std::time::Duration::from_secs(
             state.config.general.gc_interval_s,

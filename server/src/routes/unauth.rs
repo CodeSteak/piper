@@ -192,8 +192,6 @@ pub fn get_tar_to_zip(
         }
     }
 
-
-
     let (mut reader, _) = match get_decrypted_reader(state, &id) {
         Ok(Ok(reader)) => reader,
         Ok(Err(res)) => return Ok(res),
