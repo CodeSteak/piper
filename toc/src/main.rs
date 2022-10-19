@@ -221,14 +221,14 @@ fn send(cli: &Cli, files: &[PathBuf]) -> anyhow::Result<()> {
 
     let base = if files.len() == 1 {
         if files[0].is_dir() {
-            files[0].to_path_buf()
+            Some(files[0].to_path_buf())
         } else if files[0].is_file() {
-            files[0].parent().unwrap().to_path_buf()
+            Some(files[0].parent().unwrap().to_path_buf())
         } else {
-            PathBuf::from(".")
+            None
         }
     } else {
-        PathBuf::from(".")
+        None
     };
 
     let code = cli.code.clone().unwrap_or_else(|| TarUrl {
@@ -242,7 +242,7 @@ fn send(cli: &Cli, files: &[PathBuf]) -> anyhow::Result<()> {
             println!("{} ({})", path.display(), size);
         }
         println!("Total size: {}", total_size);
-        println!("base: {}", base.display());
+        println!("base: {:?}", base);
     }
 
     let host = code
@@ -289,10 +289,16 @@ fn send(cli: &Cli, files: &[PathBuf]) -> anyhow::Result<()> {
         let mut progress = ProgressBar::new(total_size as u64);
 
         let mut tar = tar::Builder::new(&mut writer);
-        for (path, size, is_dir) in files_out {
+        for (src_path, size, is_dir) in files_out {
             let mut header = tar::Header::new_gnu();
 
-            let mut p = path.strip_prefix(&base).unwrap().display().to_string();
+            let mut p = if let Some(base) = &base {
+                src_path.strip_prefix(&base).unwrap()
+            } else {
+                &src_path
+            }
+            .display()
+            .to_string();
             if p.is_empty() {
                 continue;
             }
@@ -305,19 +311,27 @@ fn send(cli: &Cli, files: &[PathBuf]) -> anyhow::Result<()> {
                 println!("Adding {} ({})", p, size);
             }
 
+            if p.len() > 100 {
+                p = p[..50].to_string() + &p[p.len() - 50..];
+                eprint!("Warning: Path {} is too long. Triming.", p);
+            }
+
             header.set_path(p)?;
-            progress.update(TAR_HEADER_SIZE as _, path.display());
+
+            progress.update(TAR_HEADER_SIZE as _, src_path.display());
             if is_dir {
                 header.set_size(0);
                 header.set_cksum();
                 tar.append(&header, std::io::empty())?;
             } else {
-                let file = std::fs::File::open(&path)?;
+                let file = std::fs::File::open(&src_path)?;
                 let mode = file.metadata()?.permissions().mode();
+                let time = file.metadata()?.modified()?;
                 header.set_size(size as u64);
                 header.set_mode(mode);
+                header.set_mtime(time.duration_since(std::time::UNIX_EPOCH)?.as_secs());
                 header.set_cksum();
-                tar.append(&header, progress.reader(path.display(), file))?;
+                tar.append(&header, progress.reader(src_path.display(), file))?;
             }
         }
         tar.finish()?;
@@ -420,8 +434,6 @@ fn receive(cli: &Cli) -> anyhow::Result<()> {
             }
             continue;
         }
-
- 
 
         let perm = file.header().mode().unwrap_or(0o644);
         if file.header().entry_type().is_dir() {
